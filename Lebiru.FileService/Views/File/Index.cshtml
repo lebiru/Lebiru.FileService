@@ -1,0 +1,59 @@
+﻿@model List<(string FileName, DateTime UploadTime)>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uploaded Files</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 70%;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        img {
+            max-width: 100px;
+            max-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Uploaded Files</h2>
+    <table>
+        <tr>
+            <th>File Name</th>
+            <th>Upload Time</th>
+            <th>Preview</th>
+            <th>Action</th>
+        </tr>
+        @foreach (var file in Model)
+        {
+            var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
+            var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" || extension == ".bmp";
+            <tr>
+                <td>@file.FileName</td>
+                <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                @if (isImage)
+                {
+                    <td><img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" /></td>
+                }
+                else
+                {
+                    <td>N/A</td>
+                }
+                <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
+            </tr>
+        }
+    </table>
+</body>
+</html>
