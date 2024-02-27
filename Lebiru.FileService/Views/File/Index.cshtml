@@ -33,6 +33,7 @@
         <tr>
             <th>File Name</th>
             <th>Upload Time</th>
+            <th>Server Name</th>
             <th>Preview</th>
             <th>Action</th>
         </tr>
@@ -43,6 +44,7 @@
             <tr>
                 <td>@file.FileName</td>
                 <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                <td>@Environment.MachineName</td>
                 @if (isImage)
                 {
                     <td><img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" /></td>

@@ -146,7 +146,20 @@ namespace Lebiru.FileService.Controllers
             return Ok(response);
         }
 
-
+        [HttpGet("ServerName")]
+        public IActionResult GetServerName()
+        {
+            try
+            {
+                var serverName = Environment.MachineName; // Get the server name
+                return Ok(serverName);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                return StatusCode(500, "An error occurred while retrieving the server name.");
+            }
+        }
 
         private static string FormatBytes(long bytes)
         {
