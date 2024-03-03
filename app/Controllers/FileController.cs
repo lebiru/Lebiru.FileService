@@ -19,37 +19,46 @@ namespace Lebiru.FileService.Controllers
             return View(UploadedFiles);
         }
 
+        [HttpGet("Swagger")]
+        public IActionResult Swagger()
+        {
+            return View("Swagger");
+        }
+
         /// <summary>
         /// Uploads a file.
         /// </summary>
-        /// <param name="file">The file to upload.</param>
+        /// <param name="files">The file to upload.</param>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost("CreateDoc")]
-        public async Task<IActionResult> Upload(IFormFile file)
+        public async Task<IActionResult> Upload(List<IFormFile> files)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded.");
+            if (files == null || files.Count == 0)
+                return BadRequest("No files uploaded.");
 
-            var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
-            if (!Directory.Exists(uploadsFolderPath))
-                Directory.CreateDirectory(uploadsFolderPath);
-
-            var filePath = Path.Combine(uploadsFolderPath, file.FileName);
-
-            // Check if file upload will exceed soft limit (2 GB)
-            var totalSpaceUsed = GetTotalSpaceUsed(uploadsFolderPath);
-            if (totalSpaceUsed + file.Length > (2L * 1024L * 1024L * 1024L)) // 2 GB in bytes
+            foreach (var file in files)
             {
-                return BadRequest("File upload exceeds the maximum allocated space (2 GB).");
-            }
+                var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
+                if (!Directory.Exists(uploadsFolderPath))
+                    Directory.CreateDirectory(uploadsFolderPath);
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+                var filePath = Path.Combine(uploadsFolderPath, file.FileName);
 
-            var fileUploadTime = DateTime.UtcNow; // Record the upload time
-            UploadedFiles.Add((file.FileName, fileUploadTime));
+                // Check if file upload will exceed soft limit (2 GB)
+                var totalSpaceUsed = GetTotalSpaceUsed(uploadsFolderPath);
+                if (totalSpaceUsed + file.Length > (2L * 1024L * 1024L * 1024L)) // 2 GB in bytes
+                {
+                    return BadRequest("File upload exceeds the maximum allocated space (2 GB).");
+                }
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var fileUploadTime = DateTime.UtcNow; // Record the upload time
+                UploadedFiles.Add((file.FileName, fileUploadTime));
+            }
 
             return Ok("File uploaded successfully.");
         }

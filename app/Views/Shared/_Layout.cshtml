@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Lebiru.FileServer</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
 </head>
 <body>
     <header>
@@ -18,7 +18,7 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ml-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="/swagger">Swagger</a>
+                            <a class="nav-link" href="/File/Swagger">Swagger</a>
                         </li>
                     </ul>
                 </div>
@@ -34,7 +34,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; @DateTime.Now.Year - Lebiru.FileServer
+            &copy; @DateTime.Now.Year - Lebiru.FileServer @(typeof(Program).Assembly.GetName().Version.ToString())
         </div>
     </footer>
 

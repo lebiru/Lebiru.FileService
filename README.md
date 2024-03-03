@@ -1,3 +1,5 @@
+![demo image](images/pic-1.png)
+
 # File Storage Service
 
 File Storage Service is a simple ASP.NET Core application that allows users to upload, download, and manage files. It provides a RESTful API for file operations and includes a web interface for easy interaction.

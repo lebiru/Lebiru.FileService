@@ -8,6 +8,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <title>Uploaded Files</title>
     <style>
         table {
@@ -30,43 +31,134 @@
             max-width: 100px;
             max-height: 100px;
         }
+
+        .pagination-container {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .pagination {
+            display: flex;
+        }
+
+        .pagination button {
+            margin: 0 5px;
+        }
+
+        .page-number {
+            font-size: 25px;
+        }
     </style>
 </head>
 <body>
     <h2>Uploaded Files</h2>
 
-    <form method="post" enctype="multipart/form-data" action="/File/CreateDoc">
-        <input type="file" name="file" id="file">
-        <button type="submit">Upload File</button>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="files" id="files" multiple>
+        <button type="button" onclick="uploadFiles()">Upload File(s)</button>
     </form>
 
-    <table>
-        <tr>
-            <th>File Name</th>
-            <th>Upload Time</th>
-            <th>Server Name</th>
-            <th>Preview</th>
-            <th>Action</th>
-        </tr>
-        @foreach (var file in Model)
-        {
-            var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
-            var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" || extension == ".bmp";
+    @if (Model.Count > 0)
+    {
+        <table>
             <tr>
-                <td>@file.FileName</td>
-                <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                <td>@Environment.MachineName</td>
-                @if (isImage)
-                {
-                    <td><img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" /></td>
-                }
-                else
-                {
-                    <td>N/A</td>
-                }
-                <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
+                <th>File Name</th>
+                <th>Upload Time</th>
+                <th>Server Name</th>
+                <th>Preview</th>
+                <th>Action</th>
             </tr>
+            @foreach (var file in Model)
+            {
+                var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
+                var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" || extension == ".bmp";
+                <tr class="fileRow">
+                    <td>@file.FileName</td>
+                    <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@Environment.MachineName</td>
+                    @if (isImage)
+                    {
+                        <td><img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" /></td>
+                    }
+                    else
+                    {
+                        <td>N/A</td>
+                    }
+                    <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
+                </tr>
+            }
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination-container">
+            <div class="pagination">
+                <button onclick="prevPage()">Previous</button>
+                <button onclick="nextPage()">Next</button>
+            </div>
+            <div class="page-number">
+                Current Page: <span id="currentPage"></span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <p class="empty-message">No files uploaded yet...</p>
+    }
+
+    <script>
+
+        var currentPage = 0;
+        var pageSize = 5;
+
+        function showPage(page) {
+            var start = page * pageSize;
+            var end = start + pageSize;
+            $('.fileRow').hide().slice(start, end).show();
+            $('#currentPage').text(page + 1); // Display page number (1-based index)
         }
-    </table>
+
+        function prevPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                showPage(currentPage);
+            }
+        }
+
+        function nextPage() {
+            var numPages = Math.ceil($('.fileRow').length / pageSize);
+            if (currentPage < numPages - 1) {
+                currentPage++;
+                showPage(currentPage);
+            }
+        }
+
+        $(document).ready(function () {
+            showPage(currentPage);
+        });
+
+        function uploadFiles() {
+            var input = document.getElementById("files");
+            var formData = new FormData();
+
+            // Append each selected file to the FormData object
+            for (var i = 0; i < input.files.length; i++) {
+                formData.append("files", input.files[i]);
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/File/CreateDoc", true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    // Redirect to the Home page after successful upload
+                    window.location.href = "/File/Home";
+                }
+            };
+            xhr.send(formData);
+        }
+    </script>
+
+
 </body>
 </html>
