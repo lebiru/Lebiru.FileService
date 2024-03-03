@@ -1,7 +1,7 @@
 ﻿@model List<(string FileName, DateTime UploadTime)>
 
 @{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "Dashboard";
     Layout = "_Layout";
 }
 
@@ -9,7 +9,8 @@
 <html>
 <head>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <title>Uploaded Files</title>
+
+    <title>Dashboard</title>
     <style>
         table {
             border-collapse: collapse;
@@ -109,16 +110,47 @@
             cursor: pointer;
         }
 
+        .primary-bar-container {
+            display: flex;
+        }
+
+        .server-info-container {
+            margin: 0px auto;
+            font-size: 25px;
+            padding: 2px;
+        }
+
+        #uploadForm {
+            cursor: pointer;
+        }
+
+        #files {
+            cursor: pointer;
+        }
+
+        #upload-button {
+            cursor: pointer;
+        }
+
+        .fileRow {
+            height: 75px;
+        }
+
 
     </style>
 </head>
 <body>
-    <h2>Dashboard</h2>
+    <h2 style="margin: 15px auto;">Dashboard</h2>
 
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" name="files" id="files" class="button" multiple>
-        <button type="button" class="button" onclick="uploadFiles()">Upload File(s)</button>
-    </form>
+    <div class="primary-bar-container"
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="files" id="files" class="button" multiple>
+            <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
+        </form>
+        <div class="server-info-container">
+            <p>Using @ViewBag.UsedSpace of @ViewBag.TotalSpace memory</p>
+        </div>
+    </div>
 
     <!-- Search bar -->
     <input type="text" id="searchInput" class="search-bar" placeholder="Search files...">
@@ -180,7 +212,7 @@
             <button class="button-pagination" onclick="nextPage()">Next</button>
         </div>
         <div class="page-number">
-            Current Page: <span id="currentPage"></span>
+            Page <span id="currentPage"></span> of <span id="totalPage"></span>
         </div>
     </div>
 
@@ -189,17 +221,23 @@
         var currentPage = 0;
         var pageSize = 5;
 
-        function showPage(page) {
+        function showPage(page, numPages) {
             var start = page * pageSize;
             var end = start + pageSize;
             $('.fileRow').hide().slice(start, end).show();
             $('#currentPage').text(page + 1); // Display page number (1-based index)
+            if(numPages == 0)
+            {
+                numPages = 1;
+            }
+            $('#totalPage').text(numPages);
         }
 
         function prevPage() {
+            var numPages = Math.ceil($('.fileRow').length / pageSize);
             if (currentPage > 0) {
                 currentPage--;
-                showPage(currentPage);
+                showPage(currentPage, numPages);
             }
         }
 
@@ -207,12 +245,13 @@
             var numPages = Math.ceil($('.fileRow').length / pageSize);
             if (currentPage < numPages - 1) {
                 currentPage++;
-                showPage(currentPage);
+                showPage(currentPage, numPages);
             }
         }
 
         $(document).ready(function () {
-            showPage(currentPage);
+            var numPages = Math.ceil($('.fileRow').length / pageSize);
+            showPage(currentPage, numPages);
         });
 
         function uploadFiles() {
@@ -278,6 +317,7 @@
         function closeZoom() {
             document.querySelector('.zoom-container').style.display = 'none';
         }
+
 
     </script>
 

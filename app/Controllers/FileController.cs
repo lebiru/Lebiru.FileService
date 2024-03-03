@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Lebiru.FileService.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -16,6 +17,9 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("Home")]
         public IActionResult Index()
         {
+            var serverSpaceInfo = GetServerSpaceInfo();
+            ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
+            ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
             return View(UploadedFiles);
         }
 
@@ -130,6 +134,20 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("AvailableSpace")]
         public IActionResult AvailableSpace()
         {
+            var serverSpaceInfo = GetServerSpaceInfo();
+
+            var response = new
+            {
+                TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace),
+                FreeSpace = FormatBytes(serverSpaceInfo.FreeSpace),
+                UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace)
+            };
+
+            return Ok(response);
+        }
+
+        private ServerSpaceInfo GetServerSpaceInfo()
+        {
             var drive = new DriveInfo(Path.GetPathRoot(Directory.GetCurrentDirectory()));
             long totalSpace = drive.TotalSize;
             long freeSpace = drive.TotalFreeSpace;
@@ -145,14 +163,12 @@ namespace Lebiru.FileService.Controllers
                 }
             }
 
-            var response = new
-            {
-                TotalSpace = FormatBytes(totalSpace),
-                FreeSpace = FormatBytes(freeSpace),
-                UsedSpace = FormatBytes(usedSpace)
+            return new ServerSpaceInfo() { 
+                TotalSpace = totalSpace, 
+                FreeSpace = freeSpace, 
+                UsedSpace = usedSpace 
             };
 
-            return Ok(response);
         }
 
         [HttpGet("ServerName")]
