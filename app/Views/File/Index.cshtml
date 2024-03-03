@@ -13,8 +13,7 @@
     <style>
         table {
             border-collapse: collapse;
-            width: 70%;
-            margin-top: 20px;
+            width: 100%;
         }
 
         th, td {
@@ -43,36 +42,98 @@
             display: flex;
         }
 
-        .pagination button {
-            margin: 0 5px;
-        }
+            .pagination button {
+                margin: 0 5px;
+            }
 
         .page-number {
             font-size: 25px;
         }
+
+        .search-bar {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0px;
+            border: 1px solid cornflowerblue;
+            border-radius: 5px;
+        }
+
+        .button {
+            margin: 10px 0px;
+            display: block;
+            width: 225px;
+            height: 35px;
+        }
+
+        .button-pagination {
+            padding: 15px;
+            border: 1px solid #b6b6b6;
+            border-radius: 5px;
+            width: 100px;
+            color: black;
+        }
+
+        .empty-message {
+            text-align: center;
+            color: grey;
+            margin: 25px;
+        }
+
+        .table-container {
+            height: 450px; /* Set the desired height */
+            overflow-y: auto; /* Add vertical scrollbar if content exceeds height */
+        }
+
+        /* Zoomed image container */
+        .zoom-container {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+        /* Zoomed image */
+        .zoom-image {
+            display: block;
+            margin: auto;
+            margin-top: 10%;
+            max-width: 80%;
+            max-height: 80%;
+        }
+
+        .preview-cell {
+            cursor: pointer;
+        }
+
+
     </style>
 </head>
 <body>
-    <h2>Uploaded Files</h2>
+    <h2>Dashboard</h2>
 
     <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" name="files" id="files" multiple>
-        <button type="button" onclick="uploadFiles()">Upload File(s)</button>
+        <input type="file" name="files" id="files" class="button" multiple>
+        <button type="button" class="button" onclick="uploadFiles()">Upload File(s)</button>
     </form>
 
     <!-- Search bar -->
     <input type="text" id="searchInput" class="search-bar" placeholder="Search files...">
 
-    @if (Model.Count > 0)
-    {
-        <table>
-            <tr>
-                <th>File Name</th>
-                <th>Upload Time</th>
-                <th>Server Name</th>
-                <th>Preview</th>
-                <th>Action</th>
-            </tr>
+    <div class="table-container">
+    <table>
+        <tr>
+            <th>File Name</th>
+            <th>Upload Time</th>
+            <th>Server Name</th>
+            <th>Preview</th>
+            <th>Action</th>
+        </tr>
+        @if (Model.Count > 0)
+        {
             @foreach (var file in Model)
             {
                 var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
@@ -83,7 +144,9 @@
                     <td>@Environment.MachineName</td>
                     @if (isImage)
                     {
-                        <td><img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" /></td>
+                        <td class="preview-cell">
+                                <img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" alt="Image Preview" class="preview-image" />
+                        </td>
                     }
                     else
                     {
@@ -92,23 +155,34 @@
                     <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
                 </tr>
             }
-        </table>
+        }
+        else
+        {
+            <tr>
+                <td colspan="5">
+                    <p class="empty-message">No files uploaded yet...</p>
+                </td>
+            </tr>
+        }
+    </table>
+    </div>
 
-        <!-- Pagination -->
-        <div class="pagination-container">
-            <div class="pagination">
-                <button onclick="prevPage()">Previous</button>
-                <button onclick="nextPage()">Next</button>
-            </div>
-            <div class="page-number">
-                Current Page: <span id="currentPage"></span>
-            </div>
+    <!-- Zoomed image container -->
+    <div class="zoom-container" onclick="closeZoom()">
+        <span class="close-zoom">&times;</span>
+        <img src="" alt="Zoomed Image" class="zoom-image">
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-container">
+        <div class="pagination">
+            <button class="button-pagination" onclick="prevPage()">Previous</button>
+            <button class="button-pagination" onclick="nextPage()">Next</button>
         </div>
-    }
-    else
-    {
-        <p class="empty-message">No files uploaded yet...</p>
-    }
+        <div class="page-number">
+            Current Page: <span id="currentPage"></span>
+        </div>
+    </div>
 
     <script>
 
@@ -181,6 +255,30 @@
                 }
             }
         });
+
+        // Get all preview cells
+        var previewCells = document.querySelectorAll('.preview-cell');
+
+        // Add click event listener to each preview cell
+        previewCells.forEach(function (cell) {
+            cell.addEventListener('click', function () {
+                // Get the image source from the clicked cell
+                var imageUrl = this.querySelector('.preview-image').src;
+
+                // Set the image source in the zoom container
+                var zoomImage = document.querySelector('.zoom-image');
+                zoomImage.src = imageUrl;
+
+                // Show the zoom container
+                document.querySelector('.zoom-container').style.display = 'block';
+            });
+        });
+
+        // Function to close the zoomed image
+        function closeZoom() {
+            document.querySelector('.zoom-container').style.display = 'none';
+        }
+
     </script>
 
 
