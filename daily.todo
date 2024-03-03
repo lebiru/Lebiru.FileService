@@ -1,10 +1,13 @@
-- /Dashboard UI
-  - Available File Space
-  - Used File Space
-- Clean-Up Scripts to delete files
-- NavBar (UI)
-- Configurations Page
-- Scaleable (multi-pod setup)
-- Docker compose file
-- Settings page (light/dark theme)
-- Pagination
+☐ /Dashboard UI
+☐    Available File Space
+☐    Used File Space
+☐    total file space
+
+☐  CleanUp Scripts to delete files
+☐  NavBar (UI)
+☐  Configurations Page
+☐  Scaleable (multipod setup)
+☐  Docker compose file
+☐  Settings page (light/dark theme)
+☐  Pagination
+   ☐ add first, last page buttons
