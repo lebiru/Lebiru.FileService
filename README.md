@@ -1,4 +1,4 @@
-![demo image](images/pic-1.png)
+![demo image](screenshots/pic-1.png)
 
 # File Storage Service
 
