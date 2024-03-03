@@ -60,6 +60,9 @@
         <button type="button" onclick="uploadFiles()">Upload File(s)</button>
     </form>
 
+    <!-- Search bar -->
+    <input type="text" id="searchInput" class="search-bar" placeholder="Search files...">
+
     @if (Model.Count > 0)
     {
         <table>
@@ -157,6 +160,27 @@
             };
             xhr.send(formData);
         }
+
+        // Get the input element and add an event listener for input events
+        document.getElementById("searchInput").addEventListener("input", function () {
+            // Get the value of the search input
+            var searchValue = this.value.trim().toLowerCase();
+
+            // Get all file rows in the table
+            var fileRows = document.getElementsByClassName("fileRow");
+
+            // Loop through all file rows and show/hide them based on search input
+            for (var i = 0; i < fileRows.length; i++) {
+                var fileName = fileRows[i].getElementsByTagName("td")[0].innerText.toLowerCase();
+
+                // Check if the file name contains the search input
+                if (fileName.includes(searchValue)) {
+                    fileRows[i].style.display = "";
+                } else {
+                    fileRows[i].style.display = "none";
+                }
+            }
+        });
     </script>
 
 
