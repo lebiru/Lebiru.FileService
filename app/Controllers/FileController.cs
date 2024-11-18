@@ -1,5 +1,6 @@
 ﻿using Lebiru.FileService.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.IO.Compression;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -128,6 +129,46 @@ namespace Lebiru.FileService.Controllers
         }
 
         /// <summary>
+        /// Downloads multiple files as a single zip file.
+        /// </summary>
+        /// <param name="filenames">A pipe-separated list of filenames to include in the zip file.</param>
+        /// <returns>The zip file containing the specified files.</returns>
+        [HttpPost("DownloadZip")]
+        public async Task<IActionResult> DownloadZip([FromForm] string filenames)
+        {
+            filenames = filenames.Trim();
+
+            if (string.IsNullOrEmpty(filenames))
+                return BadRequest("No filenames provided.");
+
+            var fileNamesArray = filenames.Split('|');
+            var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
+
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                {
+                    foreach (var fileName in fileNamesArray)
+                    {
+                        var filePath = Path.Combine(uploadsFolderPath, fileName);
+                        if (System.IO.File.Exists(filePath))
+                        {
+                            var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
+                            using (var zipStream = zipEntry.Open())
+                            using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                            {
+                                await fileStream.CopyToAsync(zipStream);
+                            }
+                        }
+                    }
+                }
+
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                return File(memoryStream.ToArray(), "application/zip", $"LebiruFiles.zip");
+            }
+        }
+
+        /// <summary>
         /// Retrieves available space on the server.
         /// </summary>
         /// <returns>Information about available space.</returns>
@@ -163,10 +204,11 @@ namespace Lebiru.FileService.Controllers
                 }
             }
 
-            return new ServerSpaceInfo() { 
-                TotalSpace = totalSpace, 
-                FreeSpace = freeSpace, 
-                UsedSpace = usedSpace 
+            return new ServerSpaceInfo()
+            {
+                TotalSpace = totalSpace,
+                FreeSpace = freeSpace,
+                UsedSpace = usedSpace
             };
 
         }
