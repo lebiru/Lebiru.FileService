@@ -136,7 +136,6 @@
             height: 75px;
         }
 
-
     </style>
 </head>
 <body>
@@ -146,6 +145,7 @@
         <form id="uploadForm" enctype="multipart/form-data">
             <input type="file" name="files" id="files" class="button" multiple>
             <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
+
         </form>
         <div class="server-info-container">
             <p>Using @ViewBag.UsedSpace of @ViewBag.TotalSpace memory</p>
@@ -155,48 +155,67 @@
     <!-- Search bar -->
     <input type="text" id="searchInput" class="search-bar" placeholder="Search files...">
 
+
+    <div style="text-align:left;">
+        <form id="form-download-button" method="post" action="DownloadZip">
+            <button style="display:none;" type="button" id="download-button" class="button" onclick="downloadFiles()">Download Selected File(s)</button>
+            <input type="hidden" id="filenames" name="filenames" value="" />
+        </form>
+    </div>
+
     <div class="table-container">
-    <table>
-        <tr>
-            <th>File Name</th>
-            <th>Upload Time</th>
-            <th>Server Name</th>
-            <th>Preview</th>
-            <th>Action</th>
-        </tr>
-        @if (Model.Count > 0)
-        {
-            @foreach (var file in Model)
+        <table>
+            <tr>
+                <th>Select</th>
+                <th>File Name</th>
+                <th>Upload Time</th>
+                <th>Server Name</th>
+                <th>Preview</th>
+                <th>Action</th>
+            </tr>
+            @if (Model.Count > 0)
             {
-                var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
-                var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" || extension == ".bmp";
-                <tr class="fileRow">
-                    <td>@file.FileName</td>
-                    <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td>@Environment.MachineName</td>
-                    @if (isImage)
-                    {
-                        <td class="preview-cell">
+                int itemIndex = 0;
+
+                @foreach (var file in Model)
+                {
+                    var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
+                    var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" || extension == ".bmp";
+
+                    <tr class="fileRow">
+
+                        <td><input type="checkbox" id="@("chk-file-" + itemIndex.ToString())" onchange="showDownloadFilesButton()"></td>
+
+                        <td id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
+
+
+                        <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@Environment.MachineName</td>
+                        @if (isImage)
+                        {
+                            <td class="preview-cell">
                                 <img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" alt="Image Preview" class="preview-image" />
-                        </td>
-                    }
-                    else
-                    {
-                        <td>N/A</td>
-                    }
-                    <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
+                            </td>
+                        }
+                        else
+                        {
+                            <td>N/A</td>
+                        }
+                        <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
+                    </tr>
+
+                    itemIndex++;
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="5">
+                        <p class="empty-message">No files uploaded yet...</p>
+                    </td>
                 </tr>
             }
-        }
-        else
-        {
-            <tr>
-                <td colspan="5">
-                    <p class="empty-message">No files uploaded yet...</p>
-                </td>
-            </tr>
-        }
-    </table>
+        </table>
     </div>
 
     <!-- Zoomed image container -->
@@ -226,8 +245,7 @@
             var end = start + pageSize;
             $('.fileRow').hide().slice(start, end).show();
             $('#currentPage').text(page + 1); // Display page number (1-based index)
-            if(numPages == 0)
-            {
+            if (numPages == 0) {
                 numPages = 1;
             }
             $('#totalPage').text(numPages);
@@ -318,6 +336,54 @@
             document.querySelector('.zoom-container').style.display = 'none';
         }
 
+        // Show or hide download-button if no checkbox is checked
+        function showDownloadFilesButton() {
+            var checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            var downloadButton = document.getElementById('download-button');
+            var anyCheckboxChecked = false;
+
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    anyCheckboxChecked = true;
+                    return;
+                }
+            });
+
+            if (anyCheckboxChecked) {
+                downloadButton.style.display = 'block';
+            } else {
+                downloadButton.style.display = 'none';
+            }
+        }
+
+        // Filter selected files from every checkbox and send pipe-separated list of filenames to the endpoint
+        // to download the selected files
+        function downloadFiles() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            let selectedFiles = [];
+
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    let fileIndex = checkbox.id.split('-')[2];
+
+                    let fileName = document.getElementById('selected-file-' + fileIndex).innerText;
+
+                    selectedFiles.push(fileName);
+                }
+            });
+
+            if (selectedFiles.length > 0) {
+                const form = document.getElementById("form-download-button");
+                const hidden = document.getElementById("filenames");
+
+                hidden.value = selectedFiles.join('|');
+
+                form.submit();
+
+                hidden.value = "";
+
+            }
+        }
 
     </script>
 
