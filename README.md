@@ -8,6 +8,7 @@ File Storage Service is a simple ASP.NET Core application that allows users to u
 
 - **File Upload**: Users can upload files to the server.
 - **File Download**: Users can download files from the server.
+- **Multi-File Download to Zip**: Users can download multiple files into a zip from the server. (@alfcanres)
 - **File Listing**: Users can view a list of uploaded files along with their upload times.
 - **Image Preview**: 🖼️ Image files are displayed with a preview in the web interface.
 - **Text File Preview**: 📄 Text files show the first 100 characters as a preview in the web interface.
