@@ -141,7 +141,7 @@
 <body>
     <h2 style="margin: 15px auto;">Dashboard</h2>
 
-    <div class="primary-bar-container"
+    <div class="primary-bar-container">
         <form id="uploadForm" enctype="multipart/form-data">
             <input type="file" name="files" id="files" class="button" multiple>
             <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
@@ -158,7 +158,7 @@
 
     <div style="text-align:left;">
         <form id="form-download-button" method="post" action="DownloadZip">
-            <button style="display:none;" type="button" id="download-button" class="button" onclick="downloadFiles()">Download Selected File(s)</button>
+            <button style="display: block;" type="button" id="download-button" class="button" onclick="downloadFiles()">Download Selected File(s)</button>
             <input type="hidden" id="filenames" name="filenames" value="" />
         </form>
     </div>
@@ -210,7 +210,7 @@
             else
             {
                 <tr>
-                    <td colspan="5">
+                    <td colspan="6">
                         <p class="empty-message">No files uploaded yet...</p>
                     </td>
                 </tr>
@@ -270,6 +270,7 @@
         $(document).ready(function () {
             var numPages = Math.ceil($('.fileRow').length / pageSize);
             showPage(currentPage, numPages);
+            showDownloadFilesButton(); // on init determine if should show download files button
         });
 
         function uploadFiles() {
@@ -336,7 +337,7 @@
             document.querySelector('.zoom-container').style.display = 'none';
         }
 
-        // Show or hide download-button if no checkbox is checked
+        // enable or disable download-button if no checkbox is checked
         function showDownloadFilesButton() {
             var checkboxes = document.querySelectorAll('input[type="checkbox"]');
             var downloadButton = document.getElementById('download-button');
@@ -350,9 +351,9 @@
             });
 
             if (anyCheckboxChecked) {
-                downloadButton.style.display = 'block';
+                $(downloadButton).prop("disabled", false);
             } else {
-                downloadButton.style.display = 'none';
+                $(downloadButton).prop("disabled", true);
             }
         }
 
