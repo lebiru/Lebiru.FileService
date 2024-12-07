@@ -25,6 +25,12 @@
                         <li class="nav-item">
                             <a class="nav-link" href="/File/Swagger">Swagger</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/healthz">HealthCheck</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/hangfire">Hangfire</a>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -39,10 +45,10 @@
 
     <footer class="border-top footer text-muted">
         <div class="container footer-container">
-            &copy; @DateTime.Now.Year - Lebiru.FileServer @(typeof(Program).Assembly.GetName().Version.ToString())
+            &copy; @DateTime.Now.Year - Lebiru.FileServer Version: @ViewContext.HttpContext.Items["Version"] | Git Height: @ViewContext.HttpContext.Items["GitHeight"]
         </div>
     </footer>
-
+    
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>

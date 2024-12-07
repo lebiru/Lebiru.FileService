@@ -1,0 +1,11 @@
+next-version: 0.0.1-preview.3
+mode: ContinuousDeployment
+branches:
+  main:
+    regex: ^main$
+    source-branches: []
+    tracks-release-branches: false
+  feature:
+    regex: ^feature[/-]
+    source-branches: [main, develop]
+    tracks-release-branches: false

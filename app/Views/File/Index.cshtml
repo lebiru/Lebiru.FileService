@@ -136,6 +136,21 @@
             height: 75px;
         }
 
+        button#delete-all-files-button {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+            line-height: 5px;
+        }
+
+        button#delete-all-files-button:hover {
+            background-color: darkred;
+        }
+
     </style>
 </head>
 <body>
@@ -145,7 +160,6 @@
         <form id="uploadForm" enctype="multipart/form-data">
             <input type="file" name="files" id="files" class="button" multiple>
             <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
-
         </form>
         <div class="server-info-container">
             <p>Using @ViewBag.UsedSpace of @ViewBag.TotalSpace memory</p>
@@ -161,6 +175,9 @@
             <button style="display: block;" type="button" id="download-button" class="button" onclick="downloadFiles()">Download Selected File(s)</button>
             <input type="hidden" id="filenames" name="filenames" value="" />
         </form>
+        <div style="text-align:left;">
+            <button type="button" id="delete-all-files-button" class="button" style="background-color: red; color: white;" onclick="confirmCleanup()">Delete All Files</button>
+        </div>
     </div>
 
     <div class="table-container">
@@ -383,6 +400,28 @@
 
                 hidden.value = "";
 
+            }
+        }
+
+        function confirmCleanup() {
+            if (confirm("Are you sure you want to delete all files? This action cannot be undone.")) {
+                fetch("/api/cleanup", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert("Cleanup job has been enqueued successfully!");
+                    } else {
+                        alert("An error occurred while trying to enqueue the cleanup job.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while trying to enqueue the cleanup job.");
+                });
             }
         }
 

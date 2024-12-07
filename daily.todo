@@ -1,16 +1,29 @@
-☐ /Dashboard UI
-☐    Available File Space
-☐    Used File Space
-☐    total file space
+COMPLETE
 
-Using 2 Mb of 2 Gi memory
-Using {used-space} of {total-space} memory
+✔️ healthcheck endpoint
+✔️ /Dashboard UI
+✔️    Available File Space
+✔️    Used File Space
+✔️    total file space
+✔️  Docker compose file
+✔️  hangfire job that would delete all files
+✔️  GitVersion on the footer
+✔️ "Delete All Files" button w/ Hangfire.Console logging
 
-☐  CleanUp Scripts to delete files
+TODO
+
 ☐  NavBar (UI)
-☐  Configurations Page
-☐  Scaleable (multipod setup)
-☐  Docker compose file
-☐  Settings page (light/dark theme)
+   - hangfire (complete)
+   - healthcheck (complete)
+   - configView
+   - swagger (complete)
+☐  Settings page / ConfigView (light/dark theme)
+   - light/dark theme
+   - env variables listing
 ☐  Pagination
    ☐ add first, last page buttons
+
+FUTURE
+
+☐  Scaleable (multipod setup)
+☐  Store-File-Using-Fragmentation-Pattern (filename => first letter store in seperate pod, round-robin)
