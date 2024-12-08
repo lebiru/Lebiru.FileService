@@ -22,6 +22,15 @@ TODO
    - env variables listing
 ☐  Pagination
    ☐ add first, last page buttons
+☐ default admin user with password change ability 
+☐ Default users: admin/admin, user/user
+☐ Encryption 
+☐ set-expiration before document is deleted
+☐ Object lock to prevent deletion or modification 
+☐ replicate data to other servers
+☐ Quicklink to document in home view
+☐ Integrate with OpenTelemetry
+☐ White label for your company needs
 
 FUTURE
 
