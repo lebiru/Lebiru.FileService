@@ -25,6 +25,9 @@
 
         th {
             background-color: #f2f2f2;
+            position: sticky; /* Makes the header sticky */
+            top: 0; /* Ensures it sticks to the top of the container */
+            z-index: 1; /* Ensures it stays on top of table rows */
         }
 
         img {
@@ -188,7 +191,7 @@
                 <th>Upload Time</th>
                 <th>Server Name</th>
                 <th>Preview</th>
-                <th>Action</th>
+                <th>Actions</th>
             </tr>
             @if (Model.Count > 0)
             {
@@ -218,7 +221,11 @@
                         {
                             <td>N/A</td>
                         }
-                        <td><a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">Download</a></td>
+                        <td>
+                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank">📄 View File</a>
+                            <br />
+                            <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">⬇️ Download</a>
+                        </td>
                     </tr>
 
                     itemIndex++;
@@ -405,7 +412,7 @@
 
         function confirmCleanup() {
             if (confirm("Are you sure you want to delete all files? This action cannot be undone.")) {
-                fetch("/api/cleanup", {
+                fetch("/File/TriggerCleanup", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -414,6 +421,7 @@
                 .then(response => {
                     if (response.ok) {
                         alert("Cleanup job has been enqueued successfully!");
+                        window.location.reload();
                     } else {
                         alert("An error occurred while trying to enqueue the cleanup job.");
                     }

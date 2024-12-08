@@ -1,6 +1,7 @@
 ﻿using Lebiru.FileService.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.IO.Compression;
+using Hangfire;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -10,6 +11,12 @@ namespace Lebiru.FileService.Controllers
     {
         private static readonly List<(string FileName, DateTime UploadTime)> UploadedFiles = new List<(string FileName, DateTime UploadTime)>();
         private const string UploadsFolder = "uploads";
+        private readonly CleanupJob _cleanupJob;
+
+        public FileController(CleanupJob cleanupJob)
+        {
+            _cleanupJob = cleanupJob;
+        }
 
         /// <summary>
         /// The home page for the app. Displays current files hosted on FileService.
@@ -66,6 +73,35 @@ namespace Lebiru.FileService.Controllers
             }
 
             return Ok("File uploaded successfully.");
+        }
+
+        private string GetMimeType(string filePath)
+        {
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            return extension switch
+            {
+                ".txt" => "text/plain",
+                ".html" => "text/html",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream"
+            };
+        }
+
+        [HttpGet("ViewFile")]
+        public IActionResult ViewFile(string filename)
+        {
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found.");
+
+            var mimeType = GetMimeType(filePath);
+            return PhysicalFile(filePath, mimeType, enableRangeProcessing: true);
         }
 
         private long GetTotalSpaceUsed(string directoryPath)
@@ -126,6 +162,15 @@ namespace Lebiru.FileService.Controllers
             memory.Position = 0;
 
             return File(memory, "application/octet-stream", filename);
+        }
+
+        [HttpPost("TriggerCleanup")]
+        public IActionResult TriggerCleanup()
+        {
+            // Enqueue the cleanup job
+            BackgroundJob.Enqueue(() => _cleanupJob.Execute(null));
+            UploadedFiles.Clear();
+            return Ok("Cleanup job has been enqueued.");
         }
 
         /// <summary>
