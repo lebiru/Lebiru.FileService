@@ -1,0 +1,144 @@
+﻿@model Dictionary<string, string>
+
+@{
+    ViewData["Title"] = "Environment Variables";
+    Layout = "_Layout"; // Adjust based on your application layout
+}
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Environment Variables</title>
+    <style>
+        body {
+            background-color: white;
+            color: black;
+        }
+
+        /* Dark Mode */
+        body.dark-mode {
+            background-color: #121212;
+            color: white;
+        }
+
+        .table-container,
+        .settings-container {
+            background-color: inherit;
+            color: inherit;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 100%;
+            /* Ensures the table fits within the container */
+            table-layout: fixed;
+            /* Forces table cells to respect set widths */
+        }
+
+        th,
+        td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+            overflow: hidden;
+            /* Prevents content from overflowing the cell */
+            text-overflow: ellipsis;
+            /* Adds "..." for truncated text */
+            white-space: nowrap;
+            /* Prevents text from wrapping */
+        }
+
+        th {
+            background-color: inherit;
+        }
+
+        td {
+            max-width: 300px;
+            /* Set a maximum width for table cells */
+        }
+
+        td a {
+            word-wrap: break-word;
+            /* Allows breaking long URLs or text links */
+        }
+
+
+        .empty-message {
+            text-align: center;
+            color: grey;
+        }
+    </style>
+</head>
+
+<body class="@((ViewBag.IsDarkMode ? "dark-mode" : ""))">
+    <h2>Environment Variables</h2>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model != null && Model.Count > 0)
+                {
+                    @foreach (var envVar in Model)
+                    {
+                        <tr>
+                            <td title="@envVar.Key">@envVar.Key</td> <!-- Add a title attribute for hover-to-view -->
+                            <td title="@envVar.Value">@envVar.Value</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="2" style="text-align: center;">No environment variables found.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Settings Section -->
+    <div class="settings-container" style="margin-top: 20px;">
+        <h2>Settings</h2>
+        <div>
+            <label for="darkModeToggle">Dark Mode:</label>
+            <input type="checkbox" id="darkModeToggle" @if (ViewBag.IsDarkMode)
+            {
+                <text>checked</text>
+            }
+            onchange="toggleDarkMode(this.checked)" />
+        </div>
+    </div>
+
+    <script>
+        function toggleDarkMode(enable) {
+            fetch('/Config/ToggleDarkMode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `enableDarkMode=${enable}`
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reload the page to apply the theme
+                        window.location.reload();
+                    } else {
+                        alert("Failed to update Dark Mode setting.");
+                    }
+                })
+                .catch(error => console.error("Error toggling Dark Mode:", error));
+        }
+    </script>
+</body>
+
+</html>

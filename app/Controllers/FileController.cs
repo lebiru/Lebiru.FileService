@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.IO.Compression;
 using Hangfire;
+using Microsoft.AspNetCore.Http;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -28,6 +29,12 @@ namespace Lebiru.FileService.Controllers
             var serverSpaceInfo = GetServerSpaceInfo();
             ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
             ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
+
+            // Check the Dark Mode setting
+            var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
+
+            ViewBag.IsDarkMode = isDarkMode; // Pass to the view
+
             return View(UploadedFiles);
         }
 

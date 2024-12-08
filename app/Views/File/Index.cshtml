@@ -7,27 +7,52 @@
 
 <!DOCTYPE html>
 <html>
+
 <head>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <title>Dashboard</title>
     <style>
+        body {
+            background-color: white;
+            color: black;
+        }
+
+        /* Dark Mode */
+        body.dark-mode {
+            background-color: #121212;
+            color: white;
+        }
+
+        .table-container,
+        .settings-container {
+            background-color: inherit;
+            color: inherit;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
         }
 
-        th, td {
+        th,
+        td {
             border: 1px solid #dddddd;
             text-align: left;
             padding: 8px;
         }
 
         th {
-            background-color: #f2f2f2;
-            position: sticky; /* Makes the header sticky */
-            top: 0; /* Ensures it sticks to the top of the container */
-            z-index: 1; /* Ensures it stays on top of table rows */
+            background-color: inherit;
+            position: sticky;
+            /* Makes the header sticky */
+            top: 0;
+            /* Ensures it sticks to the top of the container */
+            z-index: 1;
+            /* Ensures it stays on top of table rows */
         }
 
         img {
@@ -46,9 +71,9 @@
             display: flex;
         }
 
-            .pagination button {
-                margin: 0 5px;
-            }
+        .pagination button {
+            margin: 0 5px;
+        }
 
         .page-number {
             font-size: 25px;
@@ -84,8 +109,10 @@
         }
 
         .table-container {
-            height: 450px; /* Set the desired height */
-            overflow-y: auto; /* Add vertical scrollbar if content exceeds height */
+            height: 450px;
+            /* Set the desired height */
+            overflow-y: auto;
+            /* Add vertical scrollbar if content exceeds height */
         }
 
         /* Zoomed image container */
@@ -98,8 +125,9 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.9);
+            background-color: inherit;
         }
+
         /* Zoomed image */
         .zoom-image {
             display: block;
@@ -153,10 +181,10 @@
         button#delete-all-files-button:hover {
             background-color: darkred;
         }
-
     </style>
 </head>
-<body>
+
+<body class="@((ViewBag.IsDarkMode ? "dark-mode" : ""))">
     <h2 style="margin: 15px auto;">Dashboard</h2>
 
     <div class="primary-bar-container">
@@ -175,11 +203,13 @@
 
     <div style="text-align:left;">
         <form id="form-download-button" method="post" action="DownloadZip">
-            <button style="display: block;" type="button" id="download-button" class="button" onclick="downloadFiles()">Download Selected File(s)</button>
+            <button style="display: block;" type="button" id="download-button" class="button"
+                onclick="downloadFiles()">Download Selected File(s)</button>
             <input type="hidden" id="filenames" name="filenames" value="" />
         </form>
         <div style="text-align:left;">
-            <button type="button" id="delete-all-files-button" class="button" style="background-color: red; color: white;" onclick="confirmCleanup()">Delete All Files</button>
+            <button type="button" id="delete-all-files-button" class="button"
+                style="background-color: red; color: white;" onclick="confirmCleanup()">Delete All Files</button>
         </div>
     </div>
 
@@ -200,11 +230,13 @@
                 @foreach (var file in Model)
                 {
                     var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
-                    var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" || extension == ".bmp";
+                    var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" ||
+                    extension == ".bmp";
 
                     <tr class="fileRow">
 
-                        <td><input type="checkbox" id="@("chk-file-" + itemIndex.ToString())" onchange="showDownloadFilesButton()"></td>
+                        <td><input type="checkbox" id="@("chk-file-" + itemIndex.ToString())"
+                                onchange="showDownloadFilesButton()"></td>
 
                         <td id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
 
@@ -214,7 +246,8 @@
                         @if (isImage)
                         {
                             <td class="preview-cell">
-                                <img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" alt="Image Preview" class="preview-image" />
+                                <img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" alt="Image Preview"
+                                    class="preview-image" />
                             </td>
                         }
                         else
@@ -222,7 +255,8 @@
                             <td>N/A</td>
                         }
                         <td>
-                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank">📄 View File</a>
+                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank">📄 View
+                                File</a>
                             <br />
                             <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">⬇️ Download</a>
                         </td>
@@ -418,18 +452,18 @@
                         "Content-Type": "application/json"
                     }
                 })
-                .then(response => {
-                    if (response.ok) {
-                        alert("Cleanup job has been enqueued successfully!");
-                        window.location.reload();
-                    } else {
+                    .then(response => {
+                        if (response.ok) {
+                            alert("Cleanup job has been enqueued successfully!");
+                            window.location.reload();
+                        } else {
+                            alert("An error occurred while trying to enqueue the cleanup job.");
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error:", error);
                         alert("An error occurred while trying to enqueue the cleanup job.");
-                    }
-                })
-                .catch(error => {
-                    console.error("Error:", error);
-                    alert("An error occurred while trying to enqueue the cleanup job.");
-                });
+                    });
             }
         }
 
@@ -437,4 +471,5 @@
 
 
 </body>
+
 </html>

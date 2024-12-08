@@ -9,6 +9,7 @@ COMPLETE
 ✔️  hangfire job that would delete all files
 ✔️  GitVersion on the footer
 ✔️ "Delete All Files" button w/ Hangfire.Console logging
+✔️ Quicklink to document in home view
 
 TODO
 
@@ -28,7 +29,7 @@ TODO
 ☐ set-expiration before document is deleted
 ☐ Object lock to prevent deletion or modification 
 ☐ replicate data to other servers
-☐ Quicklink to document in home view
+
 ☐ Integrate with OpenTelemetry
 ☐ White label for your company needs, replace Lebiru.FileService with company logo 200x200 (jpg or png)
 

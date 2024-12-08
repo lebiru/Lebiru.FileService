@@ -35,6 +35,15 @@ builder.Services.AddRazorPages(); // Add Razor Pages services
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddHealthChecks();
 
+// Add session services
+builder.Services.AddDistributedMemoryCache(); // Required for session state
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30); // Set session timeout
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true; // Required for GDPR compliance
+});
+
 // Load version configuration
 var versionConfig = new ConfigurationBuilder()
     .SetBasePath(AppContext.BaseDirectory)
@@ -68,6 +77,7 @@ app.UseHangfireDashboard("/hangfire");
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.UseStaticFiles();
+app.UseSession();
 app.MapControllers();
 
 app.UseEndpoints(endpoints =>
