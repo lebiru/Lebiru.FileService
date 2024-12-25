@@ -4,6 +4,8 @@ using Hangfire;
 using Hangfire.MemoryStorage;
 using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +20,7 @@ builder.Services.AddHangfireServer();
 
 // Register the CleanupJob with the target directory
 builder.Services.AddTransient(provider => 
-    new CleanupJob("./uploads/"));
+    new CleanupJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -43,6 +45,24 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true; // Required for GDPR compliance
 });
+
+var jaegerEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317";
+
+// Add OpenTelemetry
+builder.Services
+    .AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("Lebiru.FileService"))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddSource("Hangfire")
+            .AddOtlpExporter(otlpOptions =>
+                {
+                    otlpOptions.Endpoint = new Uri(jaegerEndpoint);
+                });
+    });
 
 // Load version configuration
 var versionConfig = new ConfigurationBuilder()
@@ -70,6 +90,16 @@ app.Use(async (context, next) =>
     context.Items["Version"] = version;
     context.Items["GitHeight"] = gitHeight;
     await next();
+});
+
+// Add OpenTelemetry Middleware for Hangfire
+app.Use(async (context, next) =>
+{
+    var tracer = app.Services.GetRequiredService<TracerProvider>().GetTracer("Hangfire");
+    using (var span = tracer.StartActiveSpan("Hangfire Job Execution"))
+    {
+        await next();
+    }
 });
 
 app.UseRouting();

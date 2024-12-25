@@ -1,6 +1,24 @@
 version: '3.7'
 services:
   fileservice:
-    image: lebiru/fileservice:latest
+    image: lebiru/fileservice:v0.0.1-preview.4
+    networks:
+      - app_network
     ports:
       - "3002:8080"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    networks:
+      - app_network
+    ports:
+      - "4317:4317" # OTLP GRPC endpoint
+      - "16686:16686" # Jaeger UI
+
+networks:
+  app_network:
+    driver: bridge

@@ -4,6 +4,13 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
+# Temporarily switch to root for installing curl and ping
+USER root
+RUN apt-get update && apt-get install -y curl iputils-ping && rm -rf /var/lib/apt/lists/*
+
+# Switch back to the default user for security
+USER app
+
 # Set memory limits for the container
 CMD ["--memory=2g"]
 
