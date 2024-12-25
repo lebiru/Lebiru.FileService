@@ -1,8 +1,8 @@
 ![demo image](screenshots/pic-1.png)
 
-# File Storage Service
+# Lebiru.FileService
 
-File Storage Service is a simple ASP.NET Core application that allows users to upload, download, and manage files. It provides a RESTful API for file operations and includes a web interface for easy interaction.
+Lebiru.FileService is a simple ASP.NET Core application that allows users to upload, download, and manage files. It provides a RESTful API for file operations and includes a web interface for easy interaction.
 
 ## Features
 
@@ -20,6 +20,8 @@ File Storage Service is a simple ASP.NET Core application that allows users to u
 - **HTML/CSS/JavaScript**: Frontend technologies for building the web interface.
 - **Swagger**: API documentation tool used to document the RESTful API endpoints.
 - **OpenShift**: Platform used for horizontal scaling and deployment of the application.
+- **OpenTelemetry**: Unified data telemetry for microservices
+- **Jaeger**: open source, distributed tracing platform
 
 ## Getting Started
 
