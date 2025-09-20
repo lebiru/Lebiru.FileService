@@ -31,10 +31,46 @@ builder.Services.AddTransient(provider =>
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Lebiru.FileService API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Lebiru.FileService API",
+        Version = "v1",
+        Description = "API for managing and serving files",
+        Contact = new OpenApiContact
+        {
+            Name = "Lebiru",
+            Url = new Uri("https://github.com/lebiru")
+        }
+    });
+    
+    // Add XML comments
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
+    
+    // Add security definition
+    c.AddSecurityDefinition("CookieAuth", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = ".AspNetCore.Cookies",
+        Description = "Cookie-based authentication"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference 
+                { 
+                    Type = ReferenceType.SecurityScheme, 
+                    Id = "CookieAuth" 
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
 
 
@@ -100,7 +136,18 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Lebiru.FileService v1");
+        c.DocumentTitle = "Lebiru.FileService API Documentation";
+        c.InjectStylesheet("/swagger-ui/custom.css");
+        c.DefaultModelExpandDepth(2);
+        c.DefaultModelsExpandDepth(-1);
+        c.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
+        c.EnableDeepLinking();
+        c.DisplayRequestDuration();
+    });
 }
 
 // Make version information available globally via middleware or ViewBag.
