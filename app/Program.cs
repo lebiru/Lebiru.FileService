@@ -6,6 +6,8 @@ using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Resources;
+using Lebiru.FileService.Controllers;
+using Lebiru.FileService.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,10 @@ builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
     .UseConsole());
 builder.Services.AddHangfireServer();
+
+// Generate admin password at startup
+var adminPassword = AuthController.GetOrGeneratePassword();
+var adminUsername = AuthController.GetUsername();
 
 // Register the CleanupJob with the target directory
 builder.Services.AddTransient(provider => 
@@ -103,18 +109,18 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Use Basic Authentication middleware
+app.UseMiddleware<BasicAuthMiddleware>(adminUsername, adminPassword);
+
 app.UseHangfireDashboard("/hangfire");
 app.UseHttpsRedirection();
-app.UseAuthorization();
 app.UseStaticFiles();
 app.UseSession();
+
 app.MapControllers();
-
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapControllers();
-});
-
 app.MapHealthChecks("/healthz");
 
 app.Run();
