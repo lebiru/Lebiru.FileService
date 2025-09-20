@@ -52,7 +52,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container footer-container">
-            &copy; @DateTime.Now.Year - Lebiru.FileServer Version: @ViewContext.HttpContext.Items["Version"]
+            &copy; @DateTime.Now.Year - Lebiru.FileServer Version: @ViewContext.HttpContext.Items["Version"] (@ViewContext.HttpContext.Items["GitCommit"])
         </div>
     </footer>
     

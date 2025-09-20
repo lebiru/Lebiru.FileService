@@ -90,9 +90,9 @@ var versionConfig = new ConfigurationBuilder()
     .Build();
 
 var version = versionConfig["Version"] ?? "Unknown";
-var gitHeight = versionConfig["GitHeight"] ?? "0";
+var gitCommit = versionConfig["GitCommit"] ?? "unknown";
 
-Console.WriteLine($"Application Version: {version}, Git Height: {gitHeight}");
+Console.WriteLine($"Application Version: {version}, Git Commit: {gitCommit}");
 
 var app = builder.Build();
 
@@ -107,7 +107,7 @@ if (app.Environment.IsDevelopment())
 app.Use(async (context, next) =>
 {
     context.Items["Version"] = version;
-    context.Items["GitHeight"] = gitHeight;
+    context.Items["GitCommit"] = gitCommit;
     await next();
 });
 
