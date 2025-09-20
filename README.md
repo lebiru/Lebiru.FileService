@@ -6,6 +6,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 
 ## Features
 
+- **Secure Authentication**: 🔒 Admin authentication required to access all features and endpoints.
 - **File Upload**: Users can upload files to the server.
 - **File Download**: Users can download files from the server.
 - **Multi-File Download to Zip**: Users can download multiple files into a zip from the server. (@alfcanres)
@@ -38,6 +39,15 @@ To run the application locally, follow these steps:
 The API documentation is available through Swagger. Once the application is running, you can access the Swagger UI by navigating to `/swagger` in your browser.
 
 ## Usage
+
+### Authentication
+
+- The application requires authentication for all features
+- An admin password is automatically generated at startup and displayed in the console
+- Login using the username `admin` and the generated password
+- All API endpoints and web interfaces require authentication
+
+### File Operations
 
 - **Uploading Files**: Use the provided web interface or send a POST request to `/File/CreateDoc` with the file attached as form data.
 - **Downloading Files**: Click on the download link in the web interface or send a GET request to `/File/DownloadFile?filename=your_file_name` with the filename as a query parameter.
