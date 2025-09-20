@@ -8,6 +8,7 @@ namespace Lebiru.FileService.Controllers
 {
     [Route("File")]
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class FileController : Controller
     {
         private static readonly List<(string FileName, DateTime UploadTime)> UploadedFiles = new List<(string FileName, DateTime UploadTime)>();

@@ -10,6 +10,7 @@ namespace Lebiru.FileService.Controllers
 {
   [Route("Config")]
   [ApiController]
+  [Microsoft.AspNetCore.Authorization.Authorize]
   public class ConfigController : Controller
   {
     /// <summary>

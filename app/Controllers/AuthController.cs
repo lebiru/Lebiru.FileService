@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
-using System;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace Lebiru.FileService.Controllers
 {
+    /// <summary>
+    /// Handles authentication-related actions including login and logout
+    /// </summary>
     [Route("Auth")]
     public class AuthController : Controller
     {
@@ -12,6 +16,9 @@ namespace Lebiru.FileService.Controllers
         private static bool _passwordGenerated = false;
         private static readonly string _adminUsername = "admin";
 
+        /// <summary>
+        /// Generates or retrieves the current admin password
+        /// </summary>
         public static string GetOrGeneratePassword()
         {
             if (!_passwordGenerated)
@@ -28,50 +35,64 @@ namespace Lebiru.FileService.Controllers
             return _adminPassword;
         }
 
+        /// <summary>
+        /// Gets the admin username
+        /// </summary>
         public static string GetUsername() => _adminUsername;
 
+        /// <summary>
+        /// Displays the login page
+        /// </summary>
         [HttpGet("Login")]
-        public IActionResult Login(string? error = null)
+        public IActionResult Login(string? returnUrl = null)
         {
-            ViewBag.Error = error;
+            ViewBag.ReturnUrl = returnUrl;
+            ViewBag.IsDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
             return View();
         }
 
+        /// <summary>
+        /// Handles the login form submission
+        /// </summary>
         [HttpPost("Login")]
-        public IActionResult LoginPost()
+        public async Task<IActionResult> LoginPost(string username, string password, string? returnUrl = null)
         {
-            var authHeader = Request.Headers["Authorization"].ToString();
-            if (string.IsNullOrEmpty(authHeader))
+            if (username != _adminUsername || password != _adminPassword)
             {
-                return Unauthorized();
+                ViewBag.Error = "Invalid username or password";
+                ViewBag.IsDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
+                return View("Login");
             }
 
-            try
+            var claims = new List<Claim>
             {
-                var credentialBytes = Convert.FromBase64String(authHeader.Replace("Basic ", ""));
-                var credentials = Encoding.UTF8.GetString(credentialBytes).Split(':', 2);
-                var username = credentials[0];
-                var password = credentials[1];
+                new Claim(ClaimTypes.Name, username),
+                new Claim(ClaimTypes.Role, "Admin")
+            };
 
-                if (username == _adminUsername && password == _adminPassword)
-                {
-                    return Redirect("/");
-                }
-            }
-            catch
+            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var authProperties = new AuthenticationProperties
             {
-                // Invalid auth header format
-            }
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(12)
+            };
 
-            Response.Headers["WWW-Authenticate"] = "Basic";
-            return Unauthorized();
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(claimsIdentity),
+                authProperties);
+
+            return Redirect(returnUrl ?? "/File/Home");
         }
 
+        /// <summary>
+        /// Handles user logout
+        /// </summary>
         [HttpGet("Logout")]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
-            Response.Headers["WWW-Authenticate"] = "Basic";
-            return Unauthorized();
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Login");
         }
     }
 }
