@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace Lebiru.FileService.Controllers
 {
+    /// <summary>
+    /// Controller for managing file operations including upload, download, and listing
+    /// </summary>
     [Route("File")]
     [ApiController]
     [Microsoft.AspNetCore.Authorization.Authorize]
@@ -15,6 +18,10 @@ namespace Lebiru.FileService.Controllers
         private const string UploadsFolder = "uploads";
         private readonly CleanupJob _cleanupJob;
 
+        /// <summary>
+        /// Initializes a new instance of the FileController
+        /// </summary>
+        /// <param name="cleanupJob">The cleanup job service for managing file cleanup tasks</param>
         public FileController(CleanupJob cleanupJob)
         {
             _cleanupJob = cleanupJob;
@@ -39,6 +46,10 @@ namespace Lebiru.FileService.Controllers
             return View(UploadedFiles);
         }
 
+        /// <summary>
+        /// Displays the Swagger documentation UI
+        /// </summary>
+        /// <returns>The Swagger view for API documentation</returns>
         [HttpGet("Swagger")]
         public IActionResult Swagger()
         {
@@ -100,6 +111,11 @@ namespace Lebiru.FileService.Controllers
             };
         }
 
+        /// <summary>
+        /// Views a file in the browser with proper MIME type handling
+        /// </summary>
+        /// <param name="filename">The name of the file to view</param>
+        /// <returns>The file content with appropriate MIME type for browser viewing</returns>
         [HttpGet("ViewFile")]
         public IActionResult ViewFile(string filename)
         {
@@ -172,11 +188,15 @@ namespace Lebiru.FileService.Controllers
             return File(memory, "application/octet-stream", filename);
         }
 
+        /// <summary>
+        /// Triggers an immediate cleanup of uploaded files
+        /// </summary>
+        /// <returns>A confirmation that the cleanup job has been queued</returns>
         [HttpPost("TriggerCleanup")]
         public IActionResult TriggerCleanup()
         {
             // Enqueue the cleanup job
-            BackgroundJob.Enqueue(() => _cleanupJob.Execute(null));
+            BackgroundJob.Enqueue(() => _cleanupJob.Execute(null!));
             UploadedFiles.Clear();
             return Ok("Cleanup job has been enqueued.");
         }
@@ -242,7 +262,8 @@ namespace Lebiru.FileService.Controllers
 
         private ServerSpaceInfo GetServerSpaceInfo()
         {
-            var drive = new DriveInfo(Path.GetPathRoot(Directory.GetCurrentDirectory()));
+            var rootPath = Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? throw new InvalidOperationException("Could not determine root path");
+            var drive = new DriveInfo(rootPath);
             long totalSpace = drive.TotalSize;
             long freeSpace = drive.TotalFreeSpace;
 
@@ -266,6 +287,10 @@ namespace Lebiru.FileService.Controllers
 
         }
 
+        /// <summary>
+        /// Gets the name of the server hosting the application
+        /// </summary>
+        /// <returns>The server name or an error message if retrieval fails</returns>
         [HttpGet("ServerName")]
         public IActionResult GetServerName()
         {
@@ -274,9 +299,8 @@ namespace Lebiru.FileService.Controllers
                 var serverName = Environment.MachineName; // Get the server name
                 return Ok(serverName);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Log the exception
                 return StatusCode(500, "An error occurred while retrieving the server name.");
             }
         }

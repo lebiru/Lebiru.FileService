@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace Lebiru.FileService.Controllers
 {
+  /// <summary>
+  /// Controller for managing application configuration and settings
+  /// </summary>
   [Route("Config")]
   [ApiController]
   [Microsoft.AspNetCore.Authorization.Authorize]
@@ -24,7 +27,10 @@ namespace Lebiru.FileService.Controllers
 
       // Convert to a dictionary for easier handling in the view
       var envVarDict = envVariables.Cast<DictionaryEntry>()
-                                    .ToDictionary(entry => entry.Key.ToString(), entry => entry.Value?.ToString());
+                                    .ToDictionary(
+                                        entry => entry.Key.ToString() ?? string.Empty,
+                                        entry => entry.Value?.ToString() ?? string.Empty
+                                    );
 
       // Check the Dark Mode setting
       var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
@@ -33,6 +39,11 @@ namespace Lebiru.FileService.Controllers
       return View(envVarDict);
     }
 
+    /// <summary>
+    /// Toggles the dark mode setting for the current session
+    /// </summary>
+    /// <param name="enableDarkMode">True to enable dark mode, false to disable</param>
+    /// <returns>A JSON result indicating success and the new dark mode state</returns>
     [HttpPost("ToggleDarkMode")]
     public IActionResult ToggleDarkMode([FromForm] bool enableDarkMode)
     {
