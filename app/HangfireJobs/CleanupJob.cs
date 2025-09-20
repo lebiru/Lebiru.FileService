@@ -4,17 +4,29 @@ using Hangfire.Console;
 using Hangfire.Server;
 using OpenTelemetry.Trace;
 
+/// <summary>
+/// Job for cleaning up uploaded files based on configured rules
+/// </summary>
 public class CleanupJob
 {
     private readonly string _fileDirectory;
     private readonly Tracer _tracer;
 
+    /// <summary>
+    /// Initializes a new instance of the CleanupJob class
+    /// </summary>
+    /// <param name="fileDirectory">The directory containing files to clean up</param>
+    /// <param name="tracerProvider">The OpenTelemetry tracer provider for monitoring</param>
     public CleanupJob(string fileDirectory, TracerProvider tracerProvider)
     {
         _fileDirectory = fileDirectory;
         _tracer = tracerProvider.GetTracer("Hangfire");
     }
 
+    /// <summary>
+    /// Executes the cleanup job, removing files based on configured rules
+    /// </summary>
+    /// <param name="context">The Hangfire context providing job execution information</param>
     public void Execute(PerformContext context)
     {
         using (var span = _tracer.StartActiveSpan("CleanupJob.Execute"))
