@@ -1,0 +1,224 @@
+/* Swagger UI Customization */
+:root {
+    --primary-color: #1976d2;
+    --text-color: #263238;
+    --background-color: #f5f5f5;
+    --header-bg: #1976d2;
+    --header-text: white;
+}
+
+/* Force full width on all container levels */
+#swagger-ui {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.swagger-ui > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.swagger-ui .wrapper {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Ensure inner elements also use full width */
+.swagger-ui .col {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.swagger-ui .opblock-body {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Add some minimal padding to content areas only */
+.swagger-ui .opblock-description-wrapper,
+.swagger-ui .opblock-external-docs-wrapper,
+.swagger-ui .opblock-title_normal {
+    padding: 15px;
+    margin: 0;
+}
+
+/* Header styling */
+.swagger-ui .topbar {
+    background-color: var(--header-bg);
+    padding: 15px 0;
+}
+
+.swagger-ui .topbar .download-url-wrapper .select-label {
+    color: var(--header-text);
+}
+
+/* Main content */
+.swagger-ui {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    color: var(--text-color);
+}
+
+/* Container width adjustments */
+.swagger-ui .wrapper {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+}
+
+.swagger-ui .container {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+.swagger-ui .information-container {
+    width: 100%;
+    max-width: none;
+    padding: 20px 0;
+    margin: 0;
+}
+
+/* Remove side margins from all sections */
+.swagger-ui section.models {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+.swagger-ui .scheme-container {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 20px 0;
+}
+
+/* Ensure content spans full width */
+.swagger-ui .opblock-tag-section {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+.swagger-ui .opblock {
+    width: 100%;
+    max-width: none;
+    margin: 0 0 15px 0;
+}
+
+/* Operation blocks */
+.swagger-ui .opblock {
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    margin: 0 0 15px;
+}
+
+.swagger-ui .opblock .opblock-summary {
+    padding: 8px 20px;
+}
+
+/* HTTP method colors */
+.swagger-ui .opblock.opblock-get {
+    border-color: #61affe;
+    background: rgba(97,175,254,.1);
+}
+
+.swagger-ui .opblock.opblock-post {
+    border-color: #49cc90;
+    background: rgba(73,204,144,.1);
+}
+
+.swagger-ui .opblock.opblock-delete {
+    border-color: #f93e3e;
+    background: rgba(249,62,62,.1);
+}
+
+.swagger-ui .opblock.opblock-put {
+    border-color: #fca130;
+    background: rgba(252,161,48,.1);
+}
+
+/* Parameters */
+.swagger-ui .parameters-col_description {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.swagger-ui table tbody tr td {
+    padding: 10px 0;
+    vertical-align: top;
+}
+
+/* Response section */
+.swagger-ui .responses-wrapper {
+    padding: 20px;
+}
+
+/* Schema section */
+.swagger-ui .model {
+    font-size: 13px;
+}
+
+/* Buttons */
+.swagger-ui .btn {
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+}
+
+.swagger-ui .btn:hover {
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+}
+
+/* Try it out button */
+.swagger-ui .try-out__btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+/* Schema expand/collapse buttons */
+.swagger-ui .expand-methods svg, .swagger-ui .expand-operation svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Models section */
+.swagger-ui .models {
+    margin: 20px 0;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* Authentication section */
+.swagger-ui .auth-wrapper {
+    padding: 20px;
+    margin: 20px 0;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* Description markdown */
+.swagger-ui .markdown {
+    font-size: 14px;
+    line-height: 1.6;
+}

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>0.5.0-preview.1</Version>
+    <Version>0.0.1-preview.5</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.System" Version="9.0.0" />
     <PackageReference Include="Hangfire" Version="1.8.17" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
@@ -50,10 +51,7 @@
   </Target>
 
   <Target Name="GenerateVersionJson" AfterTargets="AfterBuild" DependsOnTargets="GetGitHash">
-    <WriteLinesToFile 
-        File="appsettings.version.json"
-        Lines="{&quot;Version&quot;:&quot;$(Version)&quot;, &quot;GitCommit&quot;:&quot;$(GitHash)&quot;}"
-        Overwrite="true" />
+    <WriteLinesToFile File="appsettings.version.json" Lines="{&quot;Version&quot;:&quot;$(Version)&quot;, &quot;GitCommit&quot;:&quot;$(GitHash)&quot;}" Overwrite="true" />
   </Target>
 
 </Project>
