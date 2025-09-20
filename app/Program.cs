@@ -6,6 +6,8 @@ using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Resources;
+using Lebiru.FileService.Controllers;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,10 @@ builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
     .UseConsole());
 builder.Services.AddHangfireServer();
+
+// Generate admin password at startup
+var adminPassword = AuthController.GetOrGeneratePassword();
+var adminUsername = AuthController.GetUsername();
 
 // Register the CleanupJob with the target directory
 builder.Services.AddTransient(provider => 
@@ -37,13 +43,26 @@ builder.Services.AddRazorPages(); // Add Razor Pages services
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddHealthChecks();
 
+// Configure cookie authentication
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Auth/Login";
+        options.LogoutPath = "/Auth/Logout";
+        options.Cookie.Name = "Lebiru.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.ExpireTimeSpan = TimeSpan.FromHours(12);
+    });
+
 // Add session services
-builder.Services.AddDistributedMemoryCache(); // Required for session state
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30); // Set session timeout
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true; // Required for GDPR compliance
+    options.Cookie.IsEssential = true;
 });
 
 var jaegerEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317";
@@ -103,18 +122,15 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseHangfireDashboard("/hangfire");
 app.UseHttpsRedirection();
-app.UseAuthorization();
 app.UseStaticFiles();
 app.UseSession();
+
 app.MapControllers();
-
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapControllers();
-});
-
 app.MapHealthChecks("/healthz");
 
 app.Run();
