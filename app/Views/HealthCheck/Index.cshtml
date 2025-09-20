@@ -1,0 +1,110 @@
+@using Microsoft.Extensions.Diagnostics.HealthChecks
+@model HealthReport
+@{
+    ViewData["Title"] = "Health Check";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">System Health Status</h2>
+        </div>
+        <div class="card-body">
+            <div class="health-status-indicator mb-4">
+                @{
+                    var statusClass = Model.Status == HealthStatus.Healthy ? "success" :
+                                    Model.Status == HealthStatus.Degraded ? "warning" : "danger";
+                    var statusText = Model.Status.ToString();
+                }
+                <div class="d-flex align-items-center">
+                    <div class="status-circle bg-@statusClass me-3"></div>
+                    <h3 class="mb-0">&nbsp; Status: @statusText</h3>
+                </div>
+            </div>
+
+            <div class="health-details">
+                <h4>Health Check Details</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in Model.Entries)
+                            {
+                                var rowClass = entry.Value.Status == HealthStatus.Healthy ? "table-success" :
+                                             entry.Value.Status == HealthStatus.Degraded ? "table-warning" : "table-danger";
+                                <tr class="@rowClass">
+                                    <td>@entry.Key</td>
+                                    <td>@entry.Value.Status</td>
+                                    <td>@entry.Value.Duration.TotalMilliseconds ms</td>
+                                    <td>
+                                        @if (entry.Value.Description != null)
+                                        {
+                                            @entry.Value.Description
+                                        }
+                                        @if (entry.Value.Exception != null)
+                                        {
+                                            <pre class="text-danger">@entry.Value.Exception.Message</pre>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">Last checked: @DateTime.Now</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .status-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .health-details {
+            margin-top: 2rem;
+        }
+
+        .table th {
+            background-color: var(--bs-gray-100);
+        }
+
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 0.5rem;
+        }
+
+        .card-header {
+            background-color: var(--bs-gray-100);
+            border-top-left-radius: 0.5rem !important;
+            border-top-right-radius: 0.5rem !important;
+        }
+
+        .table-bordered {
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+    </style>
+}

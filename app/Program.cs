@@ -2,6 +2,7 @@ using Microsoft.OpenApi.Models;
 using System.Reflection;
 using Hangfire;
 using Hangfire.MemoryStorage;
+using Lebiru.FileService;
 using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry.Trace;
@@ -77,7 +78,8 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddControllersWithViews(); // Add MVC services
 builder.Services.AddRazorPages(); // Add Razor Pages services
 builder.Services.AddApplicationInsightsTelemetry();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddSystemHealthChecks();
 
 // Configure cookie authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -178,6 +180,10 @@ app.UseStaticFiles();
 app.UseSession();
 
 app.MapControllers();
-app.MapHealthChecks("/healthz");
+// Map health checks to the controller instead of the default endpoint
+app.MapControllerRoute(
+    name: "healthcheck",
+    pattern: "healthz",
+    defaults: new { controller = "HealthCheck", action = "Index" });
 
 app.Run();
