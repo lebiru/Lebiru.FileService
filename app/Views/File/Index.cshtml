@@ -1,8 +1,10 @@
-﻿@model List<(string FileName, DateTime UploadTime)>
+﻿@using Lebiru.FileService.Models
+@model List<FileInfo>
 
 @{
     ViewData["Title"] = "Dashboard";
     Layout = "_Layout";
+    var expiryOptions = (ExpiryOption[])ViewBag.ExpiryOptions;
 }
 
 <!DOCTYPE html>
@@ -36,6 +38,7 @@
         table {
             border-collapse: collapse;
             width: 100%;
+            table-layout: fixed;
         }
 
         th,
@@ -43,6 +46,9 @@
             border: 1px solid #dddddd;
             text-align: left;
             padding: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         th {
@@ -163,6 +169,24 @@
             cursor: pointer;
         }
 
+        .expiry-select {
+            margin: 10px 0;
+        }
+
+        .expiry-select select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 225px;
+            font-size: 14px;
+        }
+
+        .expiry-select label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
         .fileRow {
             height: 75px;
         }
@@ -190,6 +214,20 @@
     <div class="primary-bar-container">
         <form id="uploadForm" enctype="multipart/form-data">
             <input type="file" name="files" id="files" class="button" multiple>
+            <div class="expiry-select">
+                <label for="expiryOption">File Expiry:</label>
+                <select name="expiryOption" id="expiryOption" class="form-control">
+                    @foreach (var option in expiryOptions)
+                    {
+                        var field = option.GetType().GetField(option.ToString());
+                        var displayAttr = field?.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+                            .Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>()
+                            .FirstOrDefault();
+                        var displayName = displayAttr?.Name ?? option.ToString();
+                        <option value="@((int)option)">@displayName</option>
+                    }
+                </select>
+            </div>
             <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
         </form>
         <div class="server-info-container">
@@ -219,6 +257,7 @@
                 <th>Select</th>
                 <th>File Name</th>
                 <th>Upload Time</th>
+                <th>Expiry Time</th>
                 <th>Server Name</th>
                 <th>Preview</th>
                 <th>Actions</th>
@@ -242,6 +281,22 @@
 
 
                         <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>
+                            @if (file.ExpiryTime.HasValue)
+                            {
+                                var timeLeft = file.ExpiryTime.Value - DateTime.UtcNow;
+                                var expiryText = timeLeft.TotalSeconds < 0 ? "Expired" :
+                                    timeLeft.TotalDays > 1 ? $"{Math.Floor(timeLeft.TotalDays)} days left" :
+                                    timeLeft.TotalHours > 1 ? $"{Math.Floor(timeLeft.TotalHours)} hours left" :
+                                    timeLeft.TotalMinutes > 1 ? $"{Math.Floor(timeLeft.TotalMinutes)} minutes left" :
+                                    "Less than a minute left";
+                                <span title="@file.ExpiryTime.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")">@expiryText</span>
+                            }
+                            else
+                            {
+                                <span>Never</span>
+                            }
+                        </td>
                         <td>@Environment.MachineName</td>
                         @if (isImage)
                         {
@@ -268,7 +323,7 @@
             else
             {
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         <p class="empty-message">No files uploaded yet...</p>
                     </td>
                 </tr>
@@ -333,6 +388,11 @@
 
         function uploadFiles() {
             var input = document.getElementById("files");
+            if (!input.files || input.files.length === 0) {
+                alert("Please select at least one file to upload.");
+                return;
+            }
+
             var formData = new FormData();
 
             // Append each selected file to the FormData object
@@ -340,15 +400,37 @@
                 formData.append("files", input.files[i]);
             }
 
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", "/File/CreateDoc", true);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    // Redirect to the Home page after successful upload
-                    window.location.href = "/File/Home";
+            // Add the expiry option
+            var expirySelect = document.getElementById("expiryOption");
+            formData.append("expiryOption", expirySelect.value);
+
+            var uploadButton = document.getElementById("upload-button");
+            uploadButton.disabled = true;
+            uploadButton.textContent = "Uploading...";
+
+            fetch("/File/CreateDoc", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
                 }
-            };
-            xhr.send(formData);
+                return response.text();
+            })
+            .then(result => {
+                console.log("Upload successful:", result);
+                setTimeout(() => window.location.reload(), 500);
+            })
+            .catch(error => {
+                console.error("Upload failed:", error);
+                alert("Upload failed: " + error.message);
+            })
+            .finally(() => {
+                uploadButton.disabled = false;
+                uploadButton.textContent = "Upload File(s)";
+                input.value = ""; // Clear the file input
+            });
         }
 
         // Get the input element and add an event listener for input events
@@ -361,7 +443,7 @@
 
             // Loop through all file rows and show/hide them based on search input
             for (var i = 0; i < fileRows.length; i++) {
-                var fileName = fileRows[i].getElementsByTagName("td")[0].innerText.toLowerCase();
+                var fileName = fileRows[i].getElementsByTagName("td")[1].innerText.toLowerCase();
 
                 // Check if the file name contains the search input
                 if (fileName.includes(searchValue)) {
