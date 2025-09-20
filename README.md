@@ -13,6 +13,11 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **File Listing**: Users can view a list of uploaded files along with their upload times.
 - **Image Preview**: 🖼️ Image files are displayed with a preview in the web interface.
 - **Text File Preview**: 📄 Text files show the first 100 characters as a preview in the web interface.
+- **File Expiry**: ⏳ Set expiration times for uploaded files (1 minute, 1 hour, 1 day, 1 week, or never).
+- **Background Jobs**: 🔄 Automated cleanup of expired files using Hangfire.
+- **Job Monitoring**: 📊 Hangfire dashboard for monitoring file cleanup and expiry jobs.
+- **Console Logging**: 📝 Detailed logging of file deletions and cleanup operations.
+- **Dark Mode**: 🌙 Toggle between light and dark themes for better visibility.
 
 ## Technologies Used
 
@@ -22,7 +27,9 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **Swagger**: API documentation tool used to document the RESTful API endpoints.
 - **OpenShift**: Platform used for horizontal scaling and deployment of the application.
 - **OpenTelemetry**: Unified data telemetry for microservices
-- **Jaeger**: open source, distributed tracing platform
+- **Jaeger**: Open source, distributed tracing platform
+- **Hangfire**: Background job processing for scheduled tasks
+- **Hangfire.Console**: Enhanced logging for background jobs
 
 ## Getting Started
 
@@ -49,10 +56,23 @@ The API documentation is available through Swagger. Once the application is runn
 
 ### File Operations
 
-- **Uploading Files**: Use the provided web interface or send a POST request to `/File/CreateDoc` with the file attached as form data.
-- **Downloading Files**: Click on the download link in the web interface or send a GET request to `/File/DownloadFile?filename=your_file_name` with the filename as a query parameter.
-- **Listing Files**: View the list of uploaded files in the web interface or send a GET request to `/File/ListFiles`.
-- **Viewing Image Previews**: Image previews are displayed automatically for image files in the web interface.
+- **Uploading Files**: 
+  - Use the web interface or send a POST request to `/File/CreateDoc` with the file attached as form data
+  - Set expiry time during upload (1 minute, 1 hour, 1 day, 1 week, or never)
+  - Files are automatically deleted when they expire
+- **Downloading Files**: 
+  - Click the download link in the web interface or send a GET request to `/File/DownloadFile?filename=your_file_name`
+  - Batch download multiple files as a ZIP archive
+- **File Management**:
+  - View list of all uploaded files with upload times and expiry status
+  - See remaining time before file expiry
+  - Automatic cleanup of expired files
+  - Monitor file operations through Hangfire dashboard at `/hangfire`
+- **User Interface**:
+  - Image previews for supported formats (PNG, JPG, GIF, BMP)
+  - Click previews to view full-size images
+  - Toggle dark mode for comfortable viewing
+  - Search and filter files
 
 ## Deployment
 

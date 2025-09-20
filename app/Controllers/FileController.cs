@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.IO.Compression;
 using Hangfire;
 using Microsoft.AspNetCore.Http;
+using Lebiru.FileService.HangfireJobs;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -14,17 +15,46 @@ namespace Lebiru.FileService.Controllers
     [Microsoft.AspNetCore.Authorization.Authorize]
     public class FileController : Controller
     {
-        private static readonly List<(string FileName, DateTime UploadTime)> UploadedFiles = new List<(string FileName, DateTime UploadTime)>();
         private const string UploadsFolder = "uploads";
         private readonly CleanupJob _cleanupJob;
+        private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly string _fileInfoPath;
+
+        private List<Models.FileInfo> FileInfos
+        {
+            get
+            {
+                if (!System.IO.File.Exists(_fileInfoPath))
+                {
+                    return new List<Models.FileInfo>();
+                }
+                try
+                {
+                    var json = System.IO.File.ReadAllText(_fileInfoPath);
+                    return System.Text.Json.JsonSerializer.Deserialize<List<Models.FileInfo>>(json) ?? new();
+                }
+                catch
+                {
+                    return new List<Models.FileInfo>();
+                }
+            }
+            set
+            {
+                var json = System.Text.Json.JsonSerializer.Serialize(value);
+                System.IO.File.WriteAllText(_fileInfoPath, json);
+            }
+        }
 
         /// <summary>
         /// Initializes a new instance of the FileController
         /// </summary>
         /// <param name="cleanupJob">The cleanup job service for managing file cleanup tasks</param>
-        public FileController(CleanupJob cleanupJob)
+        /// <param name="backgroundJobClient">The Hangfire background job client</param>
+        public FileController(CleanupJob cleanupJob, IBackgroundJobClient backgroundJobClient)
         {
             _cleanupJob = cleanupJob;
+            _backgroundJobClient = backgroundJobClient;
+            _fileInfoPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, "fileInfo.json");
         }
 
         /// <summary>
@@ -37,13 +67,13 @@ namespace Lebiru.FileService.Controllers
             var serverSpaceInfo = GetServerSpaceInfo();
             ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
             ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
+            ViewBag.ExpiryOptions = Enum.GetValues<ExpiryOption>();
 
             // Check the Dark Mode setting
             var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
+            ViewBag.IsDarkMode = isDarkMode;
 
-            ViewBag.IsDarkMode = isDarkMode; // Pass to the view
-
-            return View(UploadedFiles);
+            return View(FileInfos);
         }
 
         /// <summary>
@@ -57,22 +87,25 @@ namespace Lebiru.FileService.Controllers
         }
 
         /// <summary>
-        /// Uploads a file.
+        /// Uploads a file with optional expiry time.
         /// </summary>
         /// <param name="files">The file to upload.</param>
+        /// <param name="expiryOption">When the file should expire and be deleted. Defaults to never.</param>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost("CreateDoc")]
-        public async Task<IActionResult> Upload(List<IFormFile> files)
+        public async Task<IActionResult> Upload(List<IFormFile> files, [FromForm] ExpiryOption expiryOption = ExpiryOption.Never)
         {
             if (files == null || files.Count == 0)
                 return BadRequest("No files uploaded.");
 
+            var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
+            if (!Directory.Exists(uploadsFolderPath))
+                Directory.CreateDirectory(uploadsFolderPath);
+
+            var fileInfos = FileInfos;
+
             foreach (var file in files)
             {
-                var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
-                if (!Directory.Exists(uploadsFolderPath))
-                    Directory.CreateDirectory(uploadsFolderPath);
-
                 var filePath = Path.Combine(uploadsFolderPath, file.FileName);
 
                 // Check if file upload will exceed soft limit (2 GB)
@@ -87,10 +120,39 @@ namespace Lebiru.FileService.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                var fileUploadTime = DateTime.UtcNow; // Record the upload time
-                UploadedFiles.Add((file.FileName, fileUploadTime));
+                var uploadTime = DateTime.UtcNow;
+                DateTime? expiryTime = expiryOption switch
+                {
+                    ExpiryOption.OneMinute => uploadTime.AddMinutes(1),
+                    ExpiryOption.OneHour => uploadTime.AddHours(1),
+                    ExpiryOption.OneDay => uploadTime.AddDays(1),
+                    ExpiryOption.OneWeek => uploadTime.AddDays(7),
+                    _ => null
+                };
+
+                var fileInfo = new Models.FileInfo
+                {
+                    FileName = file.FileName,
+                    FilePath = filePath,
+                    UploadTime = uploadTime,
+                    ExpiryTime = expiryTime,
+                    FileSize = file.Length
+                };
+
+                fileInfos.Add(fileInfo);
+
+                if (expiryTime.HasValue)
+                {
+                    _backgroundJobClient.Schedule<ExpiryJob>(
+                        job => job.DeleteExpiredFiles(null),
+                        expiryTime.Value
+                    );
+                }
             }
 
+            // Save the updated file information
+            FileInfos = fileInfos;
+            
             return Ok("File uploaded successfully.");
         }
 
@@ -138,11 +200,11 @@ namespace Lebiru.FileService.Controllers
         }
 
         /// <summary>
-        /// Retrieves a list of uploaded files along with their upload times and download URIs.
+        /// Retrieves a list of uploaded files along with their details and download URIs.
         /// </summary>
         /// <remarks>
         /// This endpoint returns a list of objects containing details about each uploaded file,
-        /// including the file name, upload time, and a URI for downloading the file.
+        /// including the file name, upload time, expiry time, and a URI for downloading the file.
         /// </remarks>
         /// <returns>A list of objects representing uploaded files.</returns>
         [HttpGet("ListFiles")]
@@ -150,13 +212,15 @@ namespace Lebiru.FileService.Controllers
         {
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
-            var fileDetails = UploadedFiles.Select(file =>
+            var fileDetails = FileInfos.Select(file =>
             {
                 var fileUri = $"{baseUrl}/DownloadFile?filename={Uri.EscapeDataString(file.FileName)}";
                 return new
                 {
-                    FileName = file.FileName,
-                    FileUploadTime = file.UploadTime,
+                    file.FileName,
+                    file.UploadTime,
+                    file.ExpiryTime,
+                    file.FileSize,
                     DownloadUri = fileUri
                 };
             }).ToList();
@@ -189,16 +253,17 @@ namespace Lebiru.FileService.Controllers
         }
 
         /// <summary>
-        /// Triggers an immediate cleanup of uploaded files
+        /// Triggers an immediate cleanup of expired files
         /// </summary>
         /// <returns>A confirmation that the cleanup job has been queued</returns>
         [HttpPost("TriggerCleanup")]
         public IActionResult TriggerCleanup()
         {
-            // Enqueue the cleanup job
+            // Enqueue both cleanup jobs
             BackgroundJob.Enqueue(() => _cleanupJob.Execute(null!));
-            UploadedFiles.Clear();
-            return Ok("Cleanup job has been enqueued.");
+            BackgroundJob.Enqueue<ExpiryJob>(job => job.DeleteExpiredFiles(null));
+            
+            return Ok("Cleanup jobs have been enqueued.");
         }
 
         /// <summary>

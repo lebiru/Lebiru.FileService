@@ -2,6 +2,7 @@ using Microsoft.OpenApi.Models;
 using System.Reflection;
 using Hangfire;
 using Hangfire.MemoryStorage;
+using Lebiru.FileService.HangfireJobs;
 using Lebiru.FileService;
 using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
@@ -25,9 +26,11 @@ builder.Services.AddHangfireServer();
 var adminPassword = AuthController.GetOrGeneratePassword();
 var adminUsername = AuthController.GetUsername();
 
-// Register the CleanupJob with the target directory
+// Register the cleanup jobs
 builder.Services.AddTransient(provider => 
     new CleanupJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
+builder.Services.AddTransient(provider => 
+    new ExpiryJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -174,7 +177,11 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseHangfireDashboard("/hangfire");
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    DashboardTitle = "Lebiru.FileService - Background Jobs",
+    AppPath = "/File/Home"    // Redirects "Back to Site" link
+});
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseSession();
