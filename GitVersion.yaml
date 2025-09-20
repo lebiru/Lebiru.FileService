@@ -1,10 +1,13 @@
-next-version: 0.0.1-preview.3
+next-version: 0.5.0
 mode: ContinuousDeployment
+tag-prefix: '[vV]'
+increment: Minor
 branches:
   main:
     regex: ^main$
     source-branches: []
     tracks-release-branches: false
+    is-mainline: true
   feature:
     regex: ^feature[/-]
     source-branches: [main, develop]

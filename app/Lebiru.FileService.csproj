@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>0.0.1-preview.4</Version>
+    <Version>0.5.0-preview.1</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
@@ -43,10 +43,16 @@
     </None>
   </ItemGroup>
 
-  <Target Name="GenerateVersionJson" AfterTargets="AfterBuild">
+  <Target Name="GetGitHash" BeforeTargets="GenerateVersionJson">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitHash" />
+    </Exec>
+  </Target>
+
+  <Target Name="GenerateVersionJson" AfterTargets="AfterBuild" DependsOnTargets="GetGitHash">
     <WriteLinesToFile 
         File="appsettings.version.json"
-        Lines="{&quot;Version&quot;:&quot;$(GitVersion_SemVer)&quot;, &quot;GitHeight&quot;:&quot;$(GitVersion_CommitHeight)&quot;}"
+        Lines="{&quot;Version&quot;:&quot;$(Version)&quot;, &quot;GitCommit&quot;:&quot;$(GitHash)&quot;}"
         Overwrite="true" />
   </Target>
 
