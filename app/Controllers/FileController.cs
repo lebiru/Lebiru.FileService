@@ -4,6 +4,7 @@ using System.IO.Compression;
 using Hangfire;
 using Microsoft.AspNetCore.Http;
 using Lebiru.FileService.HangfireJobs;
+using Lebiru.FileService.Services;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -20,6 +21,7 @@ namespace Lebiru.FileService.Controllers
         private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly string _fileInfoPath;
         private readonly FileServiceConfig _config;
+        private readonly IApiMetricsService _metricsService;
 
         private List<Models.FileInfo> FileInfos
         {
@@ -52,12 +54,14 @@ namespace Lebiru.FileService.Controllers
         /// <param name="cleanupJob">The cleanup job service for managing file cleanup tasks</param>
         /// <param name="backgroundJobClient">The Hangfire background job client</param>
         /// <param name="configuration">The application configuration</param>
-        public FileController(CleanupJob cleanupJob, IBackgroundJobClient backgroundJobClient, IConfiguration configuration)
+        /// <param name="metricsService">The API metrics tracking service</param>
+        public FileController(CleanupJob cleanupJob, IBackgroundJobClient backgroundJobClient, IConfiguration configuration, IApiMetricsService metricsService)
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
             _fileInfoPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, "fileInfo.json");
             _config = configuration.GetSection("FileService").Get<FileServiceConfig>() ?? new FileServiceConfig();
+            _metricsService = metricsService;
         }
 
         /// <summary>
@@ -76,6 +80,11 @@ namespace Lebiru.FileService.Controllers
             // Check the Dark Mode setting
             var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
             ViewBag.IsDarkMode = isDarkMode;
+
+            // Add API metrics to ViewBag
+            ViewBag.UploadCount = _metricsService.UploadCount;
+            ViewBag.DownloadCount = _metricsService.DownloadCount;
+            ViewBag.DeleteCount = _metricsService.DeleteCount;
 
             return View(FileInfos);
         }
@@ -157,6 +166,9 @@ namespace Lebiru.FileService.Controllers
 
             // Save the updated file information
             FileInfos = fileInfos;
+
+            // Increment upload counter
+            _metricsService.IncrementUploadCount();
             
             return Ok("File uploaded successfully.");
         }
@@ -254,6 +266,10 @@ namespace Lebiru.FileService.Controllers
             }
             memory.Position = 0;
 
+            // Only increment download counter for explicit downloads (not views)
+            _metricsService.IncrementDownloadCount();
+
+            // Force download by using application/octet-stream
             return File(memory, "application/octet-stream", filename);
         }
 
@@ -307,6 +323,14 @@ namespace Lebiru.FileService.Controllers
                 }
 
                 memoryStream.Seek(0, SeekOrigin.Begin);
+                
+                // Count each file in the zip as a download
+                var fileList = filenames.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var _ in fileList)
+                {
+                    _metricsService.IncrementDownloadCount();
+                }
+                
                 return File(memoryStream.ToArray(), "application/zip", $"LebiruFiles.zip");
             }
         }
@@ -394,6 +418,9 @@ namespace Lebiru.FileService.Controllers
                 var fileInfos = FileInfos;
                 fileInfos.RemoveAll(f => f.FileName == filename);
                 FileInfos = fileInfos;
+
+                // Increment delete counter
+                _metricsService.IncrementDeleteCount();
 
                 return Ok();
             }

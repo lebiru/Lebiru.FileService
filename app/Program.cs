@@ -4,6 +4,7 @@ using Hangfire;
 using Hangfire.MemoryStorage;
 using Lebiru.FileService.HangfireJobs;
 using Lebiru.FileService;
+using Lebiru.FileService.Services;
 using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry.Trace;
@@ -16,6 +17,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Register API metrics service as a singleton
+builder.Services.AddSingleton<IApiMetricsService, ApiMetricsService>();
 
 builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
