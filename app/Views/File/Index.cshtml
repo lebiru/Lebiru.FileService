@@ -194,6 +194,32 @@
             margin-top: 4px;
         }
 
+        .metrics-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-label {
+            color: var(--text-secondary, #666);
+            font-size: 13px;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .dark-mode .metric-label {
+            color: var(--text-secondary, #999);
+        }
+
         .dark-mode .card-title {
             --text-secondary: #999;
         }
@@ -399,6 +425,23 @@
                 <div class="card-title">Total Files</div>
                 <div class="file-count">@ViewBag.FileCount</div>
             </div>
+            <div class="server-info-container api-metrics-container">
+                <div class="card-title">API Metrics</div>
+                <div class="metrics-list">
+                    <div class="metric-item">
+                        <span class="metric-label">Uploads:</span>
+                        <span class="metric-value">@ViewBag.UploadCount</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Downloads:</span>
+                        <span class="metric-value">@ViewBag.DownloadCount</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Deletions:</span>
+                        <span class="metric-value">@ViewBag.DeleteCount</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -480,7 +523,7 @@
                         @if (isImage)
                         {
                             <td class="preview-cell">
-                                <img src="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" alt="Image Preview"
+                                <img src="@Url.Action("ViewFile", "File", new { filename = file.FileName })" alt="Image Preview"
                                     class="preview-image" />
                             </td>
                         }
