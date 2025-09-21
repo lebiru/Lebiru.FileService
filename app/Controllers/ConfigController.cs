@@ -16,27 +16,78 @@ namespace Lebiru.FileService.Controllers
   [Microsoft.AspNetCore.Authorization.Authorize]
   public class ConfigController : Controller
   {
+    // List of prefixes and exact matches for relevant environment variables
+    private static readonly string[] RelevantPrefixes = new[]
+    {
+        "ASPNETCORE_",      // ASP.NET Core configuration
+        "DOTNET_",          // .NET runtime configuration
+        "OTEL_",           // OpenTelemetry configuration
+        "FileService_",    // Our app's configuration
+        "Hangfire_"        // Hangfire configuration
+    };
+
+    private static readonly string[] ExactMatches = new[]
+    {
+        "ASPNETCORE_ENVIRONMENT",
+        "TZ",                        // Timezone
+        "PORT",                      // Server port
+        "VERSION",                   // App version
+        "MaxDiskSpaceGB",           // Our disk space config
+        "WarningThresholdPercent"   // Our warning threshold config
+    };
+
     /// <summary>
-    /// The home page for the app. Displays current files hosted on FileService.
+    /// The configuration view page. Displays relevant environment variables and settings.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>The configuration view with filtered environment variables</returns>
     [HttpGet("View")]
     public IActionResult Index()
     {
-      var envVariables = Environment.GetEnvironmentVariables();
+        var envVariables = Environment.GetEnvironmentVariables();
+        var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
 
-      // Convert to a dictionary for easier handling in the view
-      var envVarDict = envVariables.Cast<DictionaryEntry>()
-                                    .ToDictionary(
-                                        entry => entry.Key.ToString() ?? string.Empty,
-                                        entry => entry.Value?.ToString() ?? string.Empty
-                                    );
+        var relevantVariables = new Dictionary<string, string>();
 
-      // Check the Dark Mode setting
-      var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
+        // Add environment variables
+        foreach (DictionaryEntry entry in envVariables)
+        {
+            var key = entry.Key.ToString() ?? string.Empty;
+            
+            // Check if this is a relevant variable
+            if (RelevantPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) ||
+                ExactMatches.Any(match => key.Equals(match, StringComparison.OrdinalIgnoreCase)))
+            {
+                relevantVariables[key] = entry.Value?.ToString() ?? string.Empty;
+            }
+        }
 
-      ViewBag.IsDarkMode = isDarkMode; // Pass to the view
-      return View(envVarDict);
+        // Add configuration values
+        var fileServiceSection = config.GetSection("FileService");
+        if (fileServiceSection != null)
+        {
+            relevantVariables["FileService:MaxDiskSpaceGB"] = 
+                fileServiceSection["MaxDiskSpaceGB"] ?? "100";
+            relevantVariables["FileService:WarningThresholdPercent"] = 
+                fileServiceSection["WarningThresholdPercent"] ?? "90";
+        }
+
+        // Add app version from version config
+        var versionConfig = config.GetSection("Version");
+        if (versionConfig != null)
+        {
+            relevantVariables["Application:Version"] = versionConfig.Value ?? "Unknown";
+        }
+
+        // Sort the dictionary by key for consistent display
+        var sortedVariables = relevantVariables
+            .OrderBy(kv => kv.Key)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        // Check the Dark Mode setting
+        var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
+        ViewBag.IsDarkMode = isDarkMode;
+
+        return View(sortedVariables);
     }
 
     /// <summary>

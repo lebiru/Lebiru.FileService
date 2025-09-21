@@ -19,6 +19,7 @@ namespace Lebiru.FileService.Controllers
         private readonly CleanupJob _cleanupJob;
         private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly string _fileInfoPath;
+        private readonly FileServiceConfig _config;
 
         private List<Models.FileInfo> FileInfos
         {
@@ -50,11 +51,13 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         /// <param name="cleanupJob">The cleanup job service for managing file cleanup tasks</param>
         /// <param name="backgroundJobClient">The Hangfire background job client</param>
-        public FileController(CleanupJob cleanupJob, IBackgroundJobClient backgroundJobClient)
+        /// <param name="configuration">The application configuration</param>
+        public FileController(CleanupJob cleanupJob, IBackgroundJobClient backgroundJobClient, IConfiguration configuration)
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
             _fileInfoPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, "fileInfo.json");
+            _config = configuration.GetSection("FileService").Get<FileServiceConfig>() ?? new FileServiceConfig();
         }
 
         /// <summary>
@@ -68,6 +71,7 @@ namespace Lebiru.FileService.Controllers
             ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
             ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
             ViewBag.ExpiryOptions = Enum.GetValues<ExpiryOption>();
+            ViewBag.FileCount = FileInfos.Count;
 
             // Check the Dark Mode setting
             var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
@@ -108,11 +112,12 @@ namespace Lebiru.FileService.Controllers
             {
                 var filePath = Path.Combine(uploadsFolderPath, file.FileName);
 
-                // Check if file upload will exceed soft limit (2 GB)
+                // Check if file upload will exceed configured limit
                 var totalSpaceUsed = GetTotalSpaceUsed(uploadsFolderPath);
-                if (totalSpaceUsed + file.Length > (2L * 1024L * 1024L * 1024L)) // 2 GB in bytes
+                var maxSpace = _config.MaxDiskSpaceGB * 1024L * 1024L * 1024L;
+                if (totalSpaceUsed + file.Length > maxSpace)
                 {
-                    return BadRequest("File upload exceeds the maximum allocated space (2 GB).");
+                    return BadRequest($"File upload would exceed the maximum allocated space of {_config.MaxDiskSpaceGB} GB.");
                 }
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
@@ -327,11 +332,6 @@ namespace Lebiru.FileService.Controllers
 
         private ServerSpaceInfo GetServerSpaceInfo()
         {
-            var rootPath = Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? throw new InvalidOperationException("Could not determine root path");
-            var drive = new DriveInfo(rootPath);
-            long totalSpace = drive.TotalSize;
-            long freeSpace = drive.TotalFreeSpace;
-
             // Calculate total space used by uploaded files
             long usedSpace = 0;
             var uploadsDirectory = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder));
@@ -343,10 +343,11 @@ namespace Lebiru.FileService.Controllers
                 }
             }
 
-            return new ServerSpaceInfo()
+            // Convert configured GB to bytes
+            long maxDiskSpaceBytes = _config.MaxDiskSpaceGB * 1024L * 1024L * 1024L;
+
+            return new ServerSpaceInfo(maxDiskSpaceBytes)
             {
-                TotalSpace = totalSpace,
-                FreeSpace = freeSpace,
                 UsedSpace = usedSpace
             };
 
@@ -367,6 +368,38 @@ namespace Lebiru.FileService.Controllers
             catch (Exception)
             {
                 return StatusCode(500, "An error occurred while retrieving the server name.");
+            }
+        }
+
+        /// <summary>
+        /// Deletes a specific file from the server
+        /// </summary>
+        /// <param name="filename">The name of the file to delete</param>
+        /// <returns>Success or error message</returns>
+        [HttpPost("DeleteFile")]
+        public IActionResult DeleteFile([FromForm] string filename)
+        {
+            try
+            {
+                var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound($"File '{filename}' not found.");
+                }
+
+                // Delete the physical file
+                System.IO.File.Delete(filePath);
+
+                // Update fileInfo.json
+                var fileInfos = FileInfos;
+                fileInfos.RemoveAll(f => f.FileName == filename);
+                FileInfos = fileInfos;
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while deleting the file: {ex.Message}");
             }
         }
 

@@ -31,40 +31,108 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
+        .category-tabs {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 8px 16px;
+            margin-right: 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            color: inherit;
+        }
+
+        .tab-button:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        .tab-button.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .dark-mode .tab-button:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .dark-mode .tab-button.active {
+            background-color: #0d6efd;
+        }
+
         table {
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             width: 100%;
-            max-width: 100%;
-            /* Ensures the table fits within the container */
-            table-layout: fixed;
-            /* Forces table cells to respect set widths */
+            background: transparent;
+            border-radius: 8px;
+            overflow: hidden;
         }
 
         th,
         td {
-            border: 1px solid #dddddd;
             text-align: left;
-            padding: 8px;
-            overflow: hidden;
-            /* Prevents content from overflowing the cell */
-            text-overflow: ellipsis;
-            /* Adds "..." for truncated text */
-            white-space: nowrap;
-            /* Prevents text from wrapping */
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .dark-mode th,
+        .dark-mode td {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
         th {
-            background-color: inherit;
+            background-color: rgba(0,0,0,0.02);
+            font-weight: 600;
         }
 
-        td {
-            max-width: 300px;
-            /* Set a maximum width for table cells */
+        .dark-mode th {
+            background-color: rgba(255,255,255,0.05);
         }
 
-        td a {
-            word-wrap: break-word;
-            /* Allows breaking long URLs or text links */
+        .setting-name {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .value-cell {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9em;
+            max-width: 500px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .app-badge {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .dark-mode .app-badge {
+            background-color: #0d6efd;
+        }
+
+        tr:hover td {
+            background-color: rgba(0,0,0,0.02);
+        }
+
+        .dark-mode tr:hover td {
+            background-color: rgba(255,255,255,0.02);
         }
 
 
@@ -76,13 +144,21 @@
 </head>
 
 <body class="@((ViewBag.IsDarkMode ? "dark-mode" : ""))">
-    <h2>Environment Variables</h2>
+    <h2>Application Configuration</h2>
 
     <div class="table-container">
+        <div class="category-tabs">
+            <button class="tab-button active" onclick="showCategory('all')">All</button>
+            <button class="tab-button" onclick="showCategory('app')">Application</button>
+            <button class="tab-button" onclick="showCategory('aspnet')">ASP.NET Core</button>
+            <button class="tab-button" onclick="showCategory('otel')">OpenTelemetry</button>
+            <button class="tab-button" onclick="showCategory('other')">Other</button>
+        </div>
+
         <table>
             <thead>
                 <tr>
-                    <th>Key</th>
+                    <th>Setting</th>
                     <th>Value</th>
                 </tr>
             </thead>
@@ -91,21 +167,74 @@
                 {
                     @foreach (var envVar in Model)
                     {
-                        <tr>
-                            <td title="@envVar.Key">@envVar.Key</td> <!-- Add a title attribute for hover-to-view -->
-                            <td title="@envVar.Value">@envVar.Value</td>
+                        string category = "other";
+                        if (envVar.Key.StartsWith("FileService:", StringComparison.OrdinalIgnoreCase) ||
+                            envVar.Key.StartsWith("Application:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            category = "app";
+                        }
+                        else if (envVar.Key.StartsWith("ASPNETCORE_", StringComparison.OrdinalIgnoreCase))
+                        {
+                            category = "aspnet";
+                        }
+                        else if (envVar.Key.StartsWith("OTEL_", StringComparison.OrdinalIgnoreCase))
+                        {
+                            category = "otel";
+                        }
+
+                        <tr class="config-row @category-config">
+                            <td>
+                                <div class="setting-name" title="@envVar.Key">
+                                    @{
+                                        // Format the key to be more readable
+                                        var displayKey = envVar.Key
+                                            .Replace("ASPNETCORE_", "")
+                                            .Replace("FileService:", "")
+                                            .Replace("Application:", "")
+                                            .Replace("OTEL_", "")
+                                            .Replace('_', ' ');
+                                    }
+                                    @displayKey
+                                    @if (envVar.Key.StartsWith("FileService:") || envVar.Key.StartsWith("Application:"))
+                                    {
+                                        <span class="badge app-badge">App Setting</span>
+                                    }
+                                </div>
+                            </td>
+                            <td><div class="value-cell" title="@envVar.Value">@envVar.Value</div></td>
                         </tr>
                     }
                 }
                 else
                 {
                     <tr>
-                        <td colspan="2" style="text-align: center;">No environment variables found.</td>
+                        <td colspan="2" style="text-align: center;">No configuration variables found.</td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
+
+    <script>
+        function showCategory(category) {
+            // Update active tab
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+                if (button.textContent.toLowerCase().includes(category)) {
+                    button.classList.add('active');
+                }
+            });
+
+            // Show/hide rows
+            document.querySelectorAll('.config-row').forEach(row => {
+                if (category === 'all') {
+                    row.style.display = '';
+                } else {
+                    row.style.display = row.classList.contains(category + '-config') ? '' : 'none';
+                }
+            });
+        }
+    </script>
 
     <!-- Settings Section -->
     <div class="settings-container" style="margin-top: 20px;">

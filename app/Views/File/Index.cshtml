@@ -52,13 +52,18 @@
         }
 
         th {
-            background-color: inherit;
             position: sticky;
-            /* Makes the header sticky */
             top: 0;
-            /* Ensures it sticks to the top of the container */
             z-index: 1;
-            /* Ensures it stays on top of table rows */
+            background-color: #f8f9fa;  /* Light theme header background */
+            box-shadow: 0 1px 0 0 #dddddd;  /* Adds a bottom border that stays with the sticky header */
+            padding: 12px 8px;  /* Slightly increased padding */
+        }
+
+        /* Dark mode header styles */
+        body.dark-mode th {
+            background-color: #2d2d2d;  /* Dark theme header background */
+            box-shadow: 0 1px 0 0 #444444;  /* Darker border for dark mode */
         }
 
         img {
@@ -149,12 +154,94 @@
 
         .primary-bar-container {
             display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 32px;
+            margin-bottom: 20px;
         }
 
-        .server-info-container {
-            margin: 0px auto;
-            font-size: 25px;
-            padding: 2px;
+        .info-cards {
+            display: flex;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .server-info-container, .file-count-container, .doc-count-container {
+            font-size: 14px;
+            padding: 16px;
+            background: var(--bg-accent, white);
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            min-width: 200px;
+        }
+
+        .dark-mode .server-info-container,
+        .dark-mode .file-count-container,
+        .dark-mode .doc-count-container {
+            --bg-accent: #1e1e1e;
+        }
+
+        .card-title {
+            color: var(--text-secondary, #666);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .file-count {
+            font-size: 28px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .dark-mode .card-title {
+            --text-secondary: #999;
+        }
+
+        .memory-usage {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui;
+        }
+
+        .progress-bar {
+            flex-grow: 1;
+            height: 6px;
+            background: var(--progress-bg, #e9ecef);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--progress-fill, #0d6efd);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        body.dark-mode .progress-bar {
+            --progress-bg: #2d2d2d;
+        }
+
+        body.dark-mode .progress-fill {
+            --progress-fill: #0d6efd;
+        }
+
+        body.dark-mode .progress-text {
+            --text-secondary: #a0a0a0;
         }
 
         #uploadForm {
@@ -205,6 +292,33 @@
         button#delete-all-files-button:hover {
             background-color: darkred;
         }
+
+        .action-link {
+            display: inline-block;
+            padding: 4px 8px;
+            text-decoration: none;
+            color: inherit;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .action-link:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .dark-mode .action-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .delete-link {
+            color: #dc3545;
+        }
+
+        .dark-mode .delete-link {
+            color: #ff4d4d;
+        }
     </style>
 </head>
 
@@ -230,8 +344,61 @@
             </div>
             <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
         </form>
-        <div class="server-info-container">
-            <p>Using @ViewBag.UsedSpace of @ViewBag.TotalSpace memory</p>
+        <div class="info-cards">
+            <div class="server-info-container">
+                <div class="card-title">Storage Usage</div>
+                <div class="memory-usage">
+                @{
+                    // Parse the bytes values from ViewBag strings
+                    var usedSpaceStr = ViewBag.UsedSpace.ToString();
+                    var totalSpaceStr = ViewBag.TotalSpace.ToString();                // Extract numeric values (assuming format like "21.7 MB")
+                var usedValue = double.Parse(usedSpaceStr.Split(' ')[0]);
+                var usedUnit = usedSpaceStr.Split(' ')[1];
+                var totalValue = double.Parse(totalSpaceStr.Split(' ')[0]);
+                var totalUnit = totalSpaceStr.Split(' ')[1];
+                
+                // Convert to same unit if different
+                if (usedUnit != totalUnit)
+                {
+                    // Simple conversion - this could be more sophisticated
+                    var units = new[] { "B", "KB", "MB", "GB", "TB" };
+                    var usedIdx = Array.IndexOf(units, usedUnit);
+                    var totalIdx = Array.IndexOf(units, totalUnit);
+                    while (usedIdx < totalIdx)
+                    {
+                        usedValue /= 1024;
+                        usedIdx++;
+                    }
+                    while (totalIdx < usedIdx)
+                    {
+                        totalValue /= 1024;
+                        totalIdx++;
+                    }
+                }
+                
+                // Calculate percentage
+                var percentage = (usedValue / totalValue) * 100;
+                
+                // Create ASCII progress bar (50 chars wide)
+                const int width = 50;
+                var filledChars = (int)Math.Round((percentage / 100) * width);
+                var progressBar = "[" + new string('█', filledChars) + new string('░', width - filledChars) + "]";
+            }
+            <div style="font-family: monospace; white-space: pre;">
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: @percentage.ToString("F2")%"></div>
+                    </div>
+                    <span class="progress-text">@percentage.ToString("F2")%</span>
+                </div>
+                <div class="progress-text">@ViewBag.UsedSpace of @ViewBag.TotalSpace</div>
+            </div>
+            </div>
+            </div>
+            <div class="server-info-container doc-count-container">
+                <div class="card-title">Total Files</div>
+                <div class="file-count">@ViewBag.FileCount</div>
+            </div>
         </div>
     </div>
 
@@ -256,6 +423,7 @@
             <tr>
                 <th>Select</th>
                 <th>File Name</th>
+                <th>Size</th>
                 <th>Upload Time</th>
                 <th>Expiry Time</th>
                 <th>Server Name</th>
@@ -279,6 +447,17 @@
 
                         <td id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
 
+                        <td>@{
+                            var size = file.FileSize;
+                            string[] units = { "B", "KB", "MB", "GB", "TB" };
+                            int unitIndex = 0;
+                            while (size >= 1024 && unitIndex < units.Length - 1)
+                            {
+                                size /= 1024;
+                                unitIndex++;
+                            }
+                            @($"{size:F2} {units[unitIndex]}")
+                        }</td>
 
                         <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td>
@@ -310,10 +489,12 @@
                             <td>N/A</td>
                         }
                         <td>
-                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank">📄 View
+                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank" class="action-link">📄 View
                                 File</a>
                             <br />
-                            <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })">⬇️ Download</a>
+                            <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" class="action-link">⬇️ Download</a>
+                            <br />
+                            <a href="#" onclick="deleteFile('@file.FileName'); return false;" class="action-link delete-link">🗑️ Delete</a>
                         </td>
                     </tr>
 
@@ -323,7 +504,7 @@
             else
             {
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <p class="empty-message">No files uploaded yet...</p>
                     </td>
                 </tr>
@@ -546,6 +727,31 @@
                         console.error("Error:", error);
                         alert("An error occurred while trying to enqueue the cleanup job.");
                     });
+            }
+        }
+
+        function deleteFile(filename) {
+            if (confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`)) {
+                const formData = new FormData();
+                formData.append('filename', filename);
+
+                fetch("/File/DeleteFile", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.reload(); // Reload to update file list and disk usage
+                    } else {
+                        response.text().then(text => {
+                            alert("Error deleting file: " + text);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while trying to delete the file.");
+                });
             }
         }
 
