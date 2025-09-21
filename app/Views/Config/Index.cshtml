@@ -111,6 +111,16 @@
             white-space: nowrap;
         }
 
+        .description-cell {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .dark-mode .description-cell {
+            color: #aaa;
+        }
+
         .badge {
             font-size: 0.7em;
             padding: 2px 6px;
@@ -158,8 +168,9 @@
         <table>
             <thead>
                 <tr>
-                    <th>Setting</th>
-                    <th>Value</th>
+                    <th style="width: 25%">Setting</th>
+                    <th style="width: 25%">Value</th>
+                    <th style="width: 50%">Description</th>
                 </tr>
             </thead>
             <tbody>
@@ -168,6 +179,25 @@
                     @foreach (var envVar in Model)
                     {
                         string category = "other";
+                        string description = "";
+                        
+                        // Try to get exact match first
+                        if (ViewBag.Descriptions.ContainsKey(envVar.Key))
+                        {
+                            description = ViewBag.Descriptions[envVar.Key];
+                        }
+                        else
+                        {
+                            // Try to match by prefix
+                            foreach (var desc in ViewBag.Descriptions)
+                            {
+                                if (desc.Key.EndsWith("_") && envVar.Key.StartsWith(desc.Key))
+                                {
+                                    description = desc.Value;
+                                    break;
+                                }
+                            }
+                        }
                         if (envVar.Key.StartsWith("FileService:", StringComparison.OrdinalIgnoreCase) ||
                             envVar.Key.StartsWith("Application:", StringComparison.OrdinalIgnoreCase))
                         {
@@ -202,6 +232,7 @@
                                 </div>
                             </td>
                             <td><div class="value-cell" title="@envVar.Value">@envVar.Value</div></td>
+                            <td><div class="description-cell">@description</div></td>
                         </tr>
                     }
                 }

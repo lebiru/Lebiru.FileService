@@ -5,6 +5,8 @@ using Hangfire.MemoryStorage;
 using Lebiru.FileService.HangfireJobs;
 using Lebiru.FileService;
 using Lebiru.FileService.Services;
+using Lebiru.FileService.Models;
+using Microsoft.AspNetCore.Http.Features;
 using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry.Trace;
@@ -17,6 +19,30 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Configure file size limits
+var config = builder.Configuration.GetSection("FileService").Get<FileServiceConfig>();
+var maxFileSizeBytes = 1024L * 1024L * (config?.MaxFileSizeMB ?? 100); // Convert MB to bytes
+
+// Configure request size limits in Kestrel
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxFileSizeBytes; // Set Kestrel limit
+});
+
+// Configure form options
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxFileSizeBytes; // For multipart forms
+    options.ValueLengthLimit = int.MaxValue; // For form values
+    options.MultipartHeadersLengthLimit = int.MaxValue; // For multipart headers
+});
+
+// Configure IIS options
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = maxFileSizeBytes; // Set IIS limit
+});
 
 // Register API metrics service as a singleton
 builder.Services.AddSingleton<IApiMetricsService, ApiMetricsService>();
