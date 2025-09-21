@@ -90,6 +90,15 @@
             font-size: 25px;
         }
 
+        .max-file-size-info {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .dark-mode .max-file-size-info {
+            color: #aaa;
+        }
+
         .search-bar {
             width: 100%;
             padding: 15px;
@@ -354,6 +363,9 @@
     <div class="primary-bar-container">
         <form id="uploadForm" enctype="multipart/form-data">
             <input type="file" name="files" id="files" class="button" multiple>
+            <div class="max-file-size-info">
+                <small>Maximum total size: @(ViewBag.MaxFileSizeMB) MB</small>
+            </div>
             <div class="expiry-select">
                 <label for="expiryOption">File Expiry:</label>
                 <select name="expiryOption" id="expiryOption" class="form-control">

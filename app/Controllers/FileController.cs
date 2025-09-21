@@ -1,9 +1,10 @@
-﻿using Lebiru.FileService.Models;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.IO.Compression;
 using Hangfire;
 using Microsoft.AspNetCore.Http;
 using Lebiru.FileService.HangfireJobs;
+using Lebiru.FileService.Models;
+using FileInfo = Lebiru.FileService.Models.FileInfo;
 using Lebiru.FileService.Services;
 
 namespace Lebiru.FileService.Controllers
@@ -75,6 +76,7 @@ namespace Lebiru.FileService.Controllers
             ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
             ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
             ViewBag.ExpiryOptions = Enum.GetValues<ExpiryOption>();
+            ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
             ViewBag.FileCount = FileInfos.Count;
 
             // Check the Dark Mode setting
@@ -110,6 +112,16 @@ namespace Lebiru.FileService.Controllers
         {
             if (files == null || files.Count == 0)
                 return BadRequest("No files uploaded.");
+
+            // Check file size limits
+            foreach (var file in files)
+            {
+                var maxFileSizeBytes = _config.MaxFileSizeMB * 1024L * 1024L;
+                if (file.Length > maxFileSizeBytes)
+                {
+                    return BadRequest($"File '{file.FileName}' exceeds the maximum allowed size of {_config.MaxFileSizeMB} MB");
+                }
+            }
 
             var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
             if (!Directory.Exists(uploadsFolderPath))

@@ -45,6 +45,7 @@ namespace Lebiru.FileService.Controllers
     {
         var envVariables = Environment.GetEnvironmentVariables();
         var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var fileServiceConfig = config.GetSection("FileService").Get<FileServiceConfig>();
 
         var relevantVariables = new Dictionary<string, string>();
 
@@ -61,10 +62,28 @@ namespace Lebiru.FileService.Controllers
             }
         }
 
+        // Create descriptions for settings
+        var descriptions = new Dictionary<string, string>
+        {
+            { "FileService:MaxFileSizeMB", "Maximum allowed size for individual file uploads in megabytes" },
+            { "FileService:MaxDiskSpaceGB", "Maximum disk space allowed for file storage in gigabytes" },
+            { "FileService:WarningThresholdPercent", "Percentage of disk space at which warnings will be triggered" },
+            { "ASPNETCORE_ENVIRONMENT", "Current environment (Development/Production) affecting application behavior and features" },
+            { "TZ", "Server timezone setting used for timestamp calculations" },
+            { "PORT", "The port number on which the application is running" },
+            { "VERSION", "Current version of the application" },
+            { "DOTNET_", "Configuration settings for .NET runtime behavior" },
+            { "OTEL_", "OpenTelemetry configuration for application monitoring and tracing" },
+            { "Hangfire_", "Job scheduling and background processing configuration" }
+        };
+        ViewBag.Descriptions = descriptions;
+
         // Add configuration values
         var fileServiceSection = config.GetSection("FileService");
         if (fileServiceSection != null)
         {
+            relevantVariables["FileService:MaxFileSizeMB"] = 
+                fileServiceConfig?.MaxFileSizeMB.ToString() ?? "100";
             relevantVariables["FileService:MaxDiskSpaceGB"] = 
                 fileServiceSection["MaxDiskSpaceGB"] ?? "100";
             relevantVariables["FileService:WarningThresholdPercent"] = 
