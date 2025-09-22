@@ -47,14 +47,13 @@ builder.Services.Configure<IISServerOptions>(options =>
 // Register API metrics service as a singleton
 builder.Services.AddSingleton<IApiMetricsService, ApiMetricsService>();
 
+// Register user service as singleton
+builder.Services.AddSingleton<IUserService, UserService>();
+
 builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
     .UseConsole());
 builder.Services.AddHangfireServer();
-
-// Generate admin password at startup
-var adminPassword = AuthController.GetOrGeneratePassword();
-var adminUsername = AuthController.GetUsername();
 
 // Register the cleanup jobs
 builder.Services.AddTransient(provider => 

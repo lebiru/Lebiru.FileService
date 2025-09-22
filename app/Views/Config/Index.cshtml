@@ -156,23 +156,33 @@
 <body class="@((ViewBag.IsDarkMode ? "dark-mode" : ""))">
     <h2>Application Configuration</h2>
 
-    <div class="table-container">
-        <div class="category-tabs">
-            <button class="tab-button active" onclick="showCategory('all')">All</button>
-            <button class="tab-button" onclick="showCategory('app')">Application</button>
-            <button class="tab-button" onclick="showCategory('aspnet')">ASP.NET Core</button>
-            <button class="tab-button" onclick="showCategory('otel')">OpenTelemetry</button>
-            <button class="tab-button" onclick="showCategory('other')">Other</button>
-        </div>
+    <div class="category-tabs">
+        <button class="tab-button active" onclick="showSection('config')">Configuration</button>
+        <button class="tab-button" onclick="showSection('users')">Users</button>
+    </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 25%">Setting</th>
-                    <th style="width: 25%">Value</th>
-                    <th style="width: 50%">Description</th>
-                </tr>
-            </thead>
+    <div id="users-section" class="section" style="display: none;">
+        @await Html.PartialAsync("_UsersPartial", (List<Lebiru.FileService.Models.UserModel>)ViewBag.Users)
+    </div>
+
+    <div id="config-section" class="section">
+        <div class="table-container">
+            <div class="category-tabs">
+                <button class="tab-button active" onclick="showCategory('all')">All</button>
+                <button class="tab-button" onclick="showCategory('app')">Application</button>
+                <button class="tab-button" onclick="showCategory('aspnet')">ASP.NET Core</button>
+                <button class="tab-button" onclick="showCategory('otel')">OpenTelemetry</button>
+                <button class="tab-button" onclick="showCategory('other')">Other</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%">Setting</th>
+                        <th style="width: 25%">Value</th>
+                        <th style="width: 50%">Description</th>
+                    </tr>
+                </thead>
             <tbody>
                 @if (Model != null && Model.Count > 0)
                 {
@@ -247,6 +257,20 @@
     </div>
 
     <script>
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(s => {
+                s.style.display = 'none';
+            });
+            document.getElementById(section + '-section').style.display = 'block';
+
+            document.querySelectorAll('.category-tabs .tab-button').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase().includes(section.toLowerCase())) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
         function showCategory(category) {
             // Update active tab
             document.querySelectorAll('.tab-button').forEach(button => {

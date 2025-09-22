@@ -6,6 +6,7 @@ using Lebiru.FileService.HangfireJobs;
 using Lebiru.FileService.Models;
 using FileInfo = Lebiru.FileService.Models.FileInfo;
 using Lebiru.FileService.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -14,7 +15,7 @@ namespace Lebiru.FileService.Controllers
     /// </summary>
     [Route("File")]
     [ApiController]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+    [Authorize]
     public class FileController : Controller
     {
         private const string UploadsFolder = "uploads";
@@ -23,6 +24,7 @@ namespace Lebiru.FileService.Controllers
         private readonly string _fileInfoPath;
         private readonly FileServiceConfig _config;
         private readonly IApiMetricsService _metricsService;
+        private readonly IUserService _userService;
 
         private List<Models.FileInfo> FileInfos
         {
@@ -56,13 +58,20 @@ namespace Lebiru.FileService.Controllers
         /// <param name="backgroundJobClient">The Hangfire background job client</param>
         /// <param name="configuration">The application configuration</param>
         /// <param name="metricsService">The API metrics tracking service</param>
-        public FileController(CleanupJob cleanupJob, IBackgroundJobClient backgroundJobClient, IConfiguration configuration, IApiMetricsService metricsService)
+        /// <param name="userService">The user management service</param>
+        public FileController(
+            CleanupJob cleanupJob,
+            IBackgroundJobClient backgroundJobClient,
+            IConfiguration configuration,
+            IApiMetricsService metricsService,
+            IUserService userService)
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
             _fileInfoPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, "fileInfo.json");
             _config = configuration.GetSection("FileService").Get<FileServiceConfig>() ?? new FileServiceConfig();
-            _metricsService = metricsService;
+            _metricsService = metricsService ?? throw new ArgumentNullException(nameof(metricsService));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         }
 
         /// <summary>
@@ -108,6 +117,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="expiryOption">When the file should expire and be deleted. Defaults to never.</param>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost("CreateDoc")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public async Task<IActionResult> Upload(List<IFormFile> files, [FromForm] ExpiryOption expiryOption = ExpiryOption.Never)
         {
             if (files == null || files.Count == 0)
@@ -146,6 +156,13 @@ namespace Lebiru.FileService.Controllers
                     await file.CopyToAsync(stream);
                 }
 
+                // Add file ownership
+                var username = User.Identity?.Name;
+                if (username != null)
+                {
+                    _userService.AddFileToUser(username, filePath);
+                }
+
                 var uploadTime = DateTime.UtcNow;
                 DateTime? expiryTime = expiryOption switch
                 {
@@ -162,7 +179,8 @@ namespace Lebiru.FileService.Controllers
                     FilePath = filePath,
                     UploadTime = uploadTime,
                     ExpiryTime = expiryTime,
-                    FileSize = file.Length
+                    FileSize = file.Length,
+                    Owner = User.Identity?.Name
                 };
 
                 fileInfos.Add(fileInfo);
@@ -423,8 +441,24 @@ namespace Lebiru.FileService.Controllers
                     return NotFound($"File '{filename}' not found.");
                 }
 
+                // Check if user has permission to delete the file
+                var username = User.Identity?.Name;
+                if (username == null)
+                {
+                    return Unauthorized();
+                }
+
+                var userRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (userRole != UserRoles.Admin && !_userService.IsFileOwner(username, filePath))
+                {
+                    return Forbid();
+                }
+
                 // Delete the physical file
                 System.IO.File.Delete(filePath);
+
+                // Update user file ownership
+                _userService.RemoveFileFromUser(filePath);
 
                 // Update fileInfo.json
                 var fileInfos = FileInfos;

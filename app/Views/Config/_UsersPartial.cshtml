@@ -1,0 +1,63 @@
+@model List<Lebiru.FileService.Models.UserModel>
+
+<div class="table-container">
+    <h3>Users</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Files Owned</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                @foreach (var user in Model)
+                {
+                    <tr>
+                        <td>@user.Username</td>
+                        <td>
+                            <span class="badge role-badge @user.Role.ToLower()">@user.Role</span>
+                        </td>
+                        <td>@user.OwnedFiles.Count</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="3" class="text-center">No users found.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .role-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: 500;
+    }
+
+    .role-badge.admin {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .role-badge.contributor {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .role-badge.viewer {
+        background-color: #17a2b8;
+        color: white;
+    }
+
+    .dark-mode .role-badge {
+        opacity: 0.9;
+    }
+</style>

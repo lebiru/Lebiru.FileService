@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Lebiru.FileService.Services;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -12,33 +13,17 @@ namespace Lebiru.FileService.Controllers
     [Route("Auth")]
     public class AuthController : Controller
     {
-        private static string _adminPassword = string.Empty;
-        private static bool _passwordGenerated = false;
-        private static readonly string _adminUsername = "admin";
+        private readonly IUserService _userService;
+        private readonly ILogger<AuthController> _logger;
 
         /// <summary>
-        /// Generates or retrieves the current admin password
+        /// Initializes a new instance of the AuthController
         /// </summary>
-        public static string GetOrGeneratePassword()
+        public AuthController(IUserService userService, ILogger<AuthController> logger)
         {
-            if (!_passwordGenerated)
-            {
-                var randomBytes = new byte[16];
-                using (var rng = RandomNumberGenerator.Create())
-                {
-                    rng.GetBytes(randomBytes);
-                }
-                _adminPassword = Convert.ToBase64String(randomBytes);
-                Console.WriteLine($"Admin password: {_adminPassword}");
-                _passwordGenerated = true;
-            }
-            return _adminPassword;
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
-
-        /// <summary>
-        /// Gets the admin username
-        /// </summary>
-        public static string GetUsername() => _adminUsername;
 
         /// <summary>
         /// Displays the login page
@@ -57,20 +42,14 @@ namespace Lebiru.FileService.Controllers
         [HttpPost("Login")]
         public async Task<IActionResult> LoginPost(string username, string password, string? returnUrl = null)
         {
-            if (username != _adminUsername || password != _adminPassword)
+            if (!_userService.ValidateUser(username, password))
             {
                 ViewBag.Error = "Invalid username or password";
                 ViewBag.IsDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
                 return View("Login");
             }
 
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, username),
-                new Claim(ClaimTypes.Role, "Admin")
-            };
-
-            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var claimsPrincipal = _userService.CreateClaimsPrincipal(username);
             var authProperties = new AuthenticationProperties
             {
                 IsPersistent = true,
@@ -79,7 +58,7 @@ namespace Lebiru.FileService.Controllers
 
             await HttpContext.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
-                new ClaimsPrincipal(claimsIdentity),
+                claimsPrincipal,
                 authProperties);
 
             return Redirect(returnUrl ?? "/File/Home");
