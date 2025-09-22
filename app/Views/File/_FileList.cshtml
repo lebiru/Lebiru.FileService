@@ -1,17 +1,220 @@
 @using Lebiru.FileService.Models
 @model List<FileInfo>
 
-<table>
+<style>
+    .file-table {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .file-table th,
+    .file-table td {
+        border: 1px solid #dddddd;
+        padding: 8px;
+        text-overflow: ellipsis;
+        overflow: visible;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    .file-table th {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 1;
+        box-shadow: 0 1px 0 0 #dddddd;
+    }
+
+    .file-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    body.dark-mode .file-table tr:nth-child(even) {
+        background-color: #2a2a2a;
+    }
+
+    .file-table tr:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    body.dark-mode .file-table tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Column widths */
+    .col-select { width: 40px; }
+    .col-size { width: 80px; }
+    .col-filename { width: auto; }
+    .col-time { width: 160px; }
+    .col-expiry { width: 120px; }
+    .col-server { width: 120px; }
+    .col-owner { width: 120px; }
+    .col-preview { width: 110px; }
+    .col-actions { width: 100px; }
+
+    .action-dropdown {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .action-button {
+        width: 100%;
+        padding: 8px 12px;
+        background-color: transparent;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: inherit;
+        font-size: 14px;
+        position: relative;
+    }
+
+    .action-button i {
+        font-size: 12px;
+        opacity: 0.7;
+        transition: transform 0.2s;
+    }
+
+    .action-dropdown.open .action-button i {
+        transform: rotate(180deg);
+    }
+
+    body.dark-mode .action-button {
+        border-color: #444;
+    }
+
+    .action-button:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        border-color: rgba(0, 0, 0, 0.2);
+    }
+
+    body.dark-mode .action-button:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .action-menu {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        min-width: 180px;
+        padding: 4px 0;
+        margin-top: 4px;
+        background-color: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        transform-origin: top right;
+        overflow: visible;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    body.dark-mode .action-menu {
+        background-color: #2d2d2d;
+        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    body.dark-mode .action-menu {
+        background-color: #2d2d2d;
+        border-color: #444;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-menu.show {
+        display: block;
+        animation: menuFadeIn 0.15s ease-out;
+    }
+
+    .action-menu.show {
+        animation: menu-fade-in 0.15s ease-out;
+    }
+    
+    /* Separate style block for keyframes */
+</style>
+<style>
+    @@keyframes menu-fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+<style>
+
+    .action-item {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding: 10px 16px;
+        text-decoration: none;
+        color: inherit;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        gap: 8px;
+        transition: all 0.2s;
+        position: relative;
+        z-index: 10000;
+    }
+
+    .action-item i {
+        width: 16px;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    .action-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        text-decoration: none;
+        color: inherit;
+        padding-left: 20px;
+    }
+
+    body.dark-mode .action-item:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .action-item.delete-action {
+        color: #dc3545;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        margin-top: 4px;
+        padding-top: 12px;
+    }
+
+    body.dark-mode .action-item.delete-action {
+        color: #ff4d4d;
+        border-top-color: rgba(255, 255, 255, 0.1);
+    }
+
+    body.dark-mode .action-item.delete-action:hover {
+        background-color: rgba(255, 77, 77, 0.1);
+    }
+</style>
+
+<table class="file-table">
     <tr>
-        <th>Select</th>
-        <th>File Name</th>
-        <th>Size</th>
-        <th>Upload Time</th>
-        <th>Expiry Time</th>
-        <th>Server Name</th>
-        <th>Owner</th>
-        <th>Preview</th>
-        <th>Actions</th>
+        <th class="col-select">🔘</th>
+        <th class="col-filename">File Name</th>
+        <th class="col-size">Size</th>
+        <th class="col-time">Upload Time</th>
+        <th class="col-expiry">Expiry Time</th>
+        <th class="col-server">Server Name</th>
+        <th class="col-owner">Owner</th>
+        <th class="col-preview">Preview</th>
+        <th class="col-actions">Actions</th>
     </tr>
     @if (Model.Count > 0)
     {
@@ -22,12 +225,16 @@
             var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
             var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" ||
             extension == ".bmp";
+            var isAdmin = User.IsInRole(UserRoles.Admin);
+            var canDelete = isAdmin || User.Identity?.Name == file.Owner;
 
             <tr class="fileRow">
-                <td><input type="checkbox" id="@("chk-file-" + itemIndex.ToString())"
-                        onchange="showDownloadFilesButton()"></td>
-                <td id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
-                <td>@{
+                <td class="col-select">
+                    <input type="checkbox" id="@("chk-file-" + itemIndex.ToString())"
+                        onchange="showDownloadFilesButton()">
+                </td>
+                <td class="col-filename" id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
+                <td class="col-size">@{
                     var size = file.FileSize;
                     string[] units = { "B", "KB", "MB", "GB", "TB" };
                     int unitIndex = 0;
@@ -38,8 +245,10 @@
                     }
                     @($"{size:F2} {units[unitIndex]}")
                 }</td>
-                <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                <td>
+                <td class="col-time" data-upload-time="@file.UploadTime.ToString("O")">
+                    <span title="@file.UploadTime.ToString("O")">@file.UploadTime.ToString("MMM dd, yyyy, HH:mm")</span>
+                </td>
+                <td class="col-expiry">
                     @if (file.ExpiryTime.HasValue)
                     {
                         var timeLeft = file.ExpiryTime.Value - DateTime.UtcNow;
@@ -55,12 +264,8 @@
                         <span>Never</span>
                     }
                 </td>
-                <td>@Environment.MachineName</td>
-                <td>
-                    @{
-                        var isAdmin = User.IsInRole(UserRoles.Admin);
-                        var canDelete = isAdmin || User.Identity?.Name == file.Owner;
-                    }
+                <td class="col-server">@Environment.MachineName</td>
+                <td class="col-owner">
                     @if (!string.IsNullOrEmpty(file.Owner))
                     {
                         <span>@file.Owner</span>
@@ -70,27 +275,45 @@
                         <span class="text-muted">-</span>
                     }
                 </td>
-                @if (isImage)
-                {
-                    <td class="preview-cell">
-                        <img src="@Url.Action("ViewFile", "File", new { filename = file.FileName })" alt="Image Preview"
-                            class="preview-image" />
-                    </td>
-                }
-                else
-                {
-                    <td>N/A</td>
-                }
-                <td>
-                    <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank" class="action-link">📄 View
-                        File</a>
-                    <br />
-                    <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" class="action-link">⬇️ Download</a>
-                    <br />
-                    @if (isAdmin || User.Identity?.Name == file.Owner)
+                <td class="col-preview">
+                    @if (isImage)
                     {
-                        <a href="#" onclick="deleteFile('@file.FileName'); return false;" class="action-link delete-link">🗑️ Delete</a>
+                        <div class="preview-cell">
+                            <img src="@Url.Action("ViewFile", "File", new { filename = file.FileName })" alt="Image Preview"
+                                class="preview-image" />
+                        </div>
                     }
+                    else
+                    {
+                        <span>N/A</span>
+                    }
+                </td>
+                <td class="col-actions">
+                    <div class="action-dropdown">
+                        <button type="button" class="action-button" onclick="toggleActionMenu(this)">
+                            Actions <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="action-menu">
+                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank" 
+                               class="action-item"
+                               title="Open the file in a new browser tab to view or preview its contents">
+                                <i class="fas fa-eye"></i> View File
+                            </a>
+                            <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" 
+                               class="action-item"
+                               title="Download this file to your computer">
+                                <i class="fas fa-cloud-download-alt"></i> Download
+                            </a>
+                            @if (canDelete)
+                            {
+                                <button onclick="deleteFile('@file.FileName'); return false;" 
+                                        class="action-item delete-action"
+                                        title="Permanently delete this file from the server">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </button>
+                            }
+                        </div>
+                    </div>
                 </td>
             </tr>
 
@@ -100,9 +323,90 @@
     else
     {
         <tr>
-            <td colspan="8">
+            <td colspan="9">
                 <p class="empty-message">No files uploaded yet...</p>
             </td>
         </tr>
     }
 </table>
+
+<script>
+    // Format upload times to local timezone
+    function formatUploadTimes() {
+        document.querySelectorAll('[data-upload-time]').forEach(element => {
+            const utcTime = new Date(element.dataset.uploadTime);
+            
+            // Format the date as "Sep 21, 2025, 21:15"
+            const month = utcTime.toLocaleString('en-US', { month: 'short' });
+            const day = utcTime.getDate();
+            const year = utcTime.getFullYear();
+            const hours = String(utcTime.getHours()).padStart(2, '0');
+            const minutes = String(utcTime.getMinutes()).padStart(2, '0');
+            
+            const timeStr = `${month} ${day}, ${year}, ${hours}:${minutes}`;
+            element.querySelector('span').textContent = timeStr;
+        });
+    }
+
+    // Close all menus when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.action-dropdown')) {
+            document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
+                dropdown.classList.remove('open');
+                dropdown.querySelector('.action-menu').classList.remove('show');
+            });
+        }
+    });
+
+    // Handle action menu toggling
+    function toggleActionMenu(button) {
+        const dropdown = button.closest('.action-dropdown');
+        const menu = button.nextElementSibling;
+        const isOpening = !menu.classList.contains('show');
+
+        // Close all other menus first
+        document.querySelectorAll('.action-dropdown.open').forEach(d => {
+            if (d !== dropdown) {
+                d.classList.remove('open');
+                d.querySelector('.action-menu').classList.remove('show');
+            }
+        });
+        
+        // Toggle this menu
+        dropdown.classList.toggle('open', isOpening);
+        menu.classList.toggle('show', isOpening);
+        
+        if (isOpening) {
+            const rect = button.getBoundingClientRect();
+            menu.style.top = `${rect.bottom + 4}px`;
+            menu.style.left = `${rect.right - menu.offsetWidth}px`;
+            
+            // Ensure menu stays within viewport
+            const menuRect = menu.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            if (menuRect.right > viewportWidth) {
+                menu.style.left = `${viewportWidth - menuRect.width - 8}px`;
+            }
+            if (menuRect.bottom > viewportHeight) {
+                menu.style.top = `${rect.top - menuRect.height - 4}px`;
+            }
+        }
+    }
+
+    // Close action menus when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.action-dropdown')) {
+            document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
+                dropdown.classList.remove('open');
+                dropdown.querySelector('.action-menu').classList.remove('show');
+            });
+        }
+    });
+
+    // Initialize
+    formatUploadTimes();
+    // Update times periodically
+    setInterval(formatUploadTimes, 60000); // Update every minute
+</script>
