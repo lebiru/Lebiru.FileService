@@ -263,3 +263,4 @@ __pycache__/
 *.pyc
 Lebiru.FileService.Tests/coverage-report/
 Lebiru.FileService.Tests/coverage.cobertura.xml
+app/app-data/
