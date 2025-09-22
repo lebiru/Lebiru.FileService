@@ -31,6 +31,11 @@ namespace Lebiru.FileService.Models
         /// The size of the file in bytes
         /// </summary>
         public long FileSize { get; set; }
+
+        /// <summary>
+        /// The username of the user who uploaded the file
+        /// </summary>
+        public string? Owner { get; set; }
     }
 
     /// <summary>

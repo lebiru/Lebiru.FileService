@@ -5,6 +5,8 @@ using Hangfire;
 using System.Collections.Generic;
 using System.Collections;
 using Microsoft.AspNetCore.Http;
+using Lebiru.FileService.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -13,9 +15,18 @@ namespace Lebiru.FileService.Controllers
   /// </summary>
   [Route("Config")]
   [ApiController]
-  [Microsoft.AspNetCore.Authorization.Authorize]
+  [Authorize(Roles = UserRoles.Admin)]
   public class ConfigController : Controller
   {
+    private readonly IUserService _userService;
+
+    /// <summary>
+    /// Initializes a new instance of the ConfigController class
+    /// </summary>
+    public ConfigController(IUserService userService)
+    {
+        _userService = userService;
+    }
     // List of prefixes and exact matches for relevant environment variables
     private static readonly string[] RelevantPrefixes = new[]
     {
@@ -77,6 +88,9 @@ namespace Lebiru.FileService.Controllers
             { "Hangfire_", "Job scheduling and background processing configuration" }
         };
         ViewBag.Descriptions = descriptions;
+
+        // Get users for admin view
+        ViewBag.Users = _userService.GetAllUsers();
 
         // Add configuration values
         var fileServiceSection = config.GetSection("FileService");

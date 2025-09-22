@@ -468,103 +468,18 @@
             <input type="hidden" id="filenames" name="filenames" value="" />
         </form>
         <div style="text-align:left;">
-            <button type="button" id="delete-all-files-button" class="button"
-                style="background-color: red; color: white;" onclick="confirmCleanup()">Delete All Files</button>
+            @if (User.IsInRole(UserRoles.Admin))
+            {
+                <button type="button" id="delete-all-files-button" class="button"
+                    style="background-color: red; color: white;" onclick="confirmCleanup()">Delete All Files</button>
+            }
         </div>
     </div>
 
     <div class="table-container">
-        <table>
-            <tr>
-                <th>Select</th>
-                <th>File Name</th>
-                <th>Size</th>
-                <th>Upload Time</th>
-                <th>Expiry Time</th>
-                <th>Server Name</th>
-                <th>Preview</th>
-                <th>Actions</th>
-            </tr>
-            @if (Model.Count > 0)
-            {
-                int itemIndex = 0;
-
-                @foreach (var file in Model)
-                {
-                    var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
-                    var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" ||
-                    extension == ".bmp";
-
-                    <tr class="fileRow">
-
-                        <td><input type="checkbox" id="@("chk-file-" + itemIndex.ToString())"
-                                onchange="showDownloadFilesButton()"></td>
-
-                        <td id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
-
-                        <td>@{
-                            var size = file.FileSize;
-                            string[] units = { "B", "KB", "MB", "GB", "TB" };
-                            int unitIndex = 0;
-                            while (size >= 1024 && unitIndex < units.Length - 1)
-                            {
-                                size /= 1024;
-                                unitIndex++;
-                            }
-                            @($"{size:F2} {units[unitIndex]}")
-                        }</td>
-
-                        <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td>
-                            @if (file.ExpiryTime.HasValue)
-                            {
-                                var timeLeft = file.ExpiryTime.Value - DateTime.UtcNow;
-                                var expiryText = timeLeft.TotalSeconds < 0 ? "Expired" :
-                                    timeLeft.TotalDays > 1 ? $"{Math.Floor(timeLeft.TotalDays)} days left" :
-                                    timeLeft.TotalHours > 1 ? $"{Math.Floor(timeLeft.TotalHours)} hours left" :
-                                    timeLeft.TotalMinutes > 1 ? $"{Math.Floor(timeLeft.TotalMinutes)} minutes left" :
-                                    "Less than a minute left";
-                                <span title="@file.ExpiryTime.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")">@expiryText</span>
-                            }
-                            else
-                            {
-                                <span>Never</span>
-                            }
-                        </td>
-                        <td>@Environment.MachineName</td>
-                        @if (isImage)
-                        {
-                            <td class="preview-cell">
-                                <img src="@Url.Action("ViewFile", "File", new { filename = file.FileName })" alt="Image Preview"
-                                    class="preview-image" />
-                            </td>
-                        }
-                        else
-                        {
-                            <td>N/A</td>
-                        }
-                        <td>
-                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank" class="action-link">📄 View
-                                File</a>
-                            <br />
-                            <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" class="action-link">⬇️ Download</a>
-                            <br />
-                            <a href="#" onclick="deleteFile('@file.FileName'); return false;" class="action-link delete-link">🗑️ Delete</a>
-                        </td>
-                    </tr>
-
-                    itemIndex++;
-                }
-            }
-            else
-            {
-                <tr>
-                    <td colspan="8">
-                        <p class="empty-message">No files uploaded yet...</p>
-                    </td>
-                </tr>
-            }
-        </table>
+        <div id="fileList">
+            @await Html.PartialAsync("_FileList", Model)
+        </div>
     </div>
 
     <!-- Zoomed image container -->
@@ -573,52 +488,89 @@
         <img src="" alt="Zoomed Image" class="zoom-image">
     </div>
 
-    <!-- Pagination -->
-    <div class="pagination-container">
-        <div class="pagination">
-            <button class="button-pagination" onclick="prevPage()">Previous</button>
-            <button class="button-pagination" onclick="nextPage()">Next</button>
-        </div>
-        <div class="page-number">
-            Page <span id="currentPage"></span> of <span id="totalPage"></span>
-        </div>
-    </div>
+    @if (Model.Any())
+    {
+        @await Html.PartialAsync("_Pagination", ViewBag.Pagination as PaginationModel)
+    }
 
     <script>
 
-        var currentPage = 0;
-        var pageSize = 5;
+        var currentPage = 1;
+        var itemsPerPage = 5;
+        var totalPages = 1;
 
-        function showPage(page, numPages) {
-            var start = page * pageSize;
-            var end = start + pageSize;
-            $('.fileRow').hide().slice(start, end).show();
-            $('#currentPage').text(page + 1); // Display page number (1-based index)
-            if (numPages == 0) {
-                numPages = 1;
+        function loadPage(page) {
+            fetch('/File/List?page=' + page + '&itemsPerPage=' + itemsPerPage)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('fileList').innerHTML = html;
+                    currentPage = page;
+                    updatePaginationDisplay();
+                })
+                .catch(error => console.error('Error loading page:', error));
+        }
+
+        function goToPage(page) {
+            if (page >= 1 && page <= totalPages) {
+                loadPage(page);
             }
-            $('#totalPage').text(numPages);
+        }
+
+        function goToFirstPage() {
+            if (currentPage > 1) {
+                loadPage(1);
+            }
+        }
+
+        function goToLastPage() {
+            if (currentPage < totalPages) {
+                loadPage(totalPages);
+            }
         }
 
         function prevPage() {
-            var numPages = Math.ceil($('.fileRow').length / pageSize);
-            if (currentPage > 0) {
-                currentPage--;
-                showPage(currentPage, numPages);
+            if (currentPage > 1) {
+                loadPage(currentPage - 1);
             }
         }
 
         function nextPage() {
-            var numPages = Math.ceil($('.fileRow').length / pageSize);
-            if (currentPage < numPages - 1) {
-                currentPage++;
-                showPage(currentPage, numPages);
+            if (currentPage < totalPages) {
+                loadPage(currentPage + 1);
             }
         }
 
-        $(document).ready(function () {
-            var numPages = Math.ceil($('.fileRow').length / pageSize);
-            showPage(currentPage, numPages);
+        function changeItemsPerPage(select) {
+            itemsPerPage = parseInt(select.value);
+            calculateTotalPages();
+            loadPage(1);
+        }
+
+        function updatePaginationDisplay() {
+            document.querySelectorAll('.page-first, .page-prev').forEach(btn => 
+                btn.disabled = currentPage === 1
+            );
+            document.querySelectorAll('.page-next, .page-last').forEach(btn => 
+                btn.disabled = currentPage === totalPages
+            );
+            document.getElementById('itemsPerPage').value = itemsPerPage;
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+        }
+
+        function calculateTotalPages() {
+            fetch('/File/GetTotalFiles')
+                .then(response => response.json())
+                .then(total => {
+                    totalPages = Math.ceil(total / itemsPerPage);
+                    updatePaginationDisplay();
+                })
+                .catch(error => console.error('Error calculating total pages:', error));
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            calculateTotalPages();
+            loadPage(1);
             showDownloadFilesButton(); // on init determine if should show download files button
         });
 

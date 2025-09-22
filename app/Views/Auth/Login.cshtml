@@ -97,7 +97,7 @@
         <div class="login-container">
             <div class="login-header">
                 <h2>Lebiru.FileService</h2>
-                <p class="text-muted">Admin Login</p>
+                <p class="text-muted">Login</p>
             </div>
 
             @if (ViewBag.Error != null)
@@ -111,7 +111,12 @@
                 <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" class="form-control" id="username" name="username" required value="admin" readonly />
+                    <select class="form-control" id="username" name="username" required>
+                        <option value="" disabled selected>Select a user</option>
+                        <option value="admin">Administrator</option>
+                        <option value="contributor">Contributor</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
@@ -121,7 +126,15 @@
             </form>
 
             <div class="login-info">
-                <p>Check the console output for the admin password.</p>
+                <p>Check the console output for your user's password.</p>
+                <p class="mt-2">
+                    <strong>Available roles:</strong><br/>
+                    <span class="text-muted">
+                        Admin: Full access to all features<br/>
+                        Contributor: Upload and manage files<br/>
+                        Viewer: View and download files
+                    </span>
+                </p>
             </div>
         </div>
     </div>
