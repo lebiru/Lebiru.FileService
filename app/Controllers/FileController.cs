@@ -82,11 +82,27 @@ namespace Lebiru.FileService.Controllers
         public IActionResult Index()
         {
             var serverSpaceInfo = GetServerSpaceInfo();
+            var fileInfos = FileInfos;
+            
+            // Create pagination model with default values
+            var pagination = new PaginationModel
+            {
+                CurrentPage = 1,
+                PageSize = PaginationModel.PageSizeOptions[1], // Default to 10
+                TotalItems = fileInfos.Count
+            };
+
+            // Get first page of files
+            var paginatedFiles = fileInfos
+                .Take(pagination.PageSize)
+                .ToList();
+
             ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
             ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
             ViewBag.ExpiryOptions = Enum.GetValues<ExpiryOption>();
             ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
-            ViewBag.FileCount = FileInfos.Count;
+            ViewBag.FileCount = fileInfos.Count;
+            ViewBag.Pagination = pagination;
 
             // Check the Dark Mode setting
             var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
@@ -97,7 +113,50 @@ namespace Lebiru.FileService.Controllers
             ViewBag.DownloadCount = _metricsService.DownloadCount;
             ViewBag.DeleteCount = _metricsService.DeleteCount;
 
-            return View(FileInfos);
+            return View(paginatedFiles);
+        }
+
+        /// <summary>
+        /// Gets a paginated list of files for AJAX updates
+        /// </summary>
+        /// <returns>A partial view with the paginated files</returns>
+        [HttpGet("List")]
+        public IActionResult List(int page = 1, int itemsPerPage = 10)
+        {
+            var fileInfos = FileInfos;
+            
+            // Ensure valid pagination parameters
+            page = Math.Max(1, page);
+            itemsPerPage = PaginationModel.PageSizeOptions.Contains(itemsPerPage) 
+                ? itemsPerPage 
+                : PaginationModel.PageSizeOptions[1]; // Default to 10
+
+            // Create pagination model
+            var pagination = new PaginationModel
+            {
+                CurrentPage = page,
+                PageSize = itemsPerPage,
+                TotalItems = fileInfos.Count
+            };
+
+            // Get paginated data
+            var paginatedFiles = fileInfos
+                .Skip((page - 1) * itemsPerPage)
+                .Take(itemsPerPage)
+                .ToList();
+
+            ViewBag.Pagination = pagination;
+            return PartialView("_FileList", paginatedFiles);
+        }
+
+        /// <summary>
+        /// Gets the total number of files for pagination
+        /// </summary>
+        /// <returns>The total number of files</returns>
+        [HttpGet("GetTotalFiles")]
+        public IActionResult GetTotalFiles()
+        {
+            return Json(FileInfos.Count);
         }
 
         /// <summary>

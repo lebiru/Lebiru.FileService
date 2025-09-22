@@ -81,7 +81,7 @@ namespace Lebiru.FileService.Services
     {
         private readonly List<UserModel> _users = new();
         private readonly ILogger<UserService> _logger;
-        private const int PasswordLength = 12;
+        private const int PasswordLength = 32;
 
         /// <summary>
         /// Initializes a new instance of the UserService class

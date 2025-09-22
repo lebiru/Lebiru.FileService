@@ -1,0 +1,108 @@
+@using Lebiru.FileService.Models
+@model List<FileInfo>
+
+<table>
+    <tr>
+        <th>Select</th>
+        <th>File Name</th>
+        <th>Size</th>
+        <th>Upload Time</th>
+        <th>Expiry Time</th>
+        <th>Server Name</th>
+        <th>Owner</th>
+        <th>Preview</th>
+        <th>Actions</th>
+    </tr>
+    @if (Model.Count > 0)
+    {
+        int itemIndex = 0;
+
+        @foreach (var file in Model)
+        {
+            var extension = System.IO.Path.GetExtension(file.FileName).ToLower();
+            var isImage = extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".gif" ||
+            extension == ".bmp";
+
+            <tr class="fileRow">
+                <td><input type="checkbox" id="@("chk-file-" + itemIndex.ToString())"
+                        onchange="showDownloadFilesButton()"></td>
+                <td id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
+                <td>@{
+                    var size = file.FileSize;
+                    string[] units = { "B", "KB", "MB", "GB", "TB" };
+                    int unitIndex = 0;
+                    while (size >= 1024 && unitIndex < units.Length - 1)
+                    {
+                        size /= 1024;
+                        unitIndex++;
+                    }
+                    @($"{size:F2} {units[unitIndex]}")
+                }</td>
+                <td>@file.UploadTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                <td>
+                    @if (file.ExpiryTime.HasValue)
+                    {
+                        var timeLeft = file.ExpiryTime.Value - DateTime.UtcNow;
+                        var expiryText = timeLeft.TotalSeconds < 0 ? "Expired" :
+                            timeLeft.TotalDays > 1 ? $"{Math.Floor(timeLeft.TotalDays)} days left" :
+                            timeLeft.TotalHours > 1 ? $"{Math.Floor(timeLeft.TotalHours)} hours left" :
+                            timeLeft.TotalMinutes > 1 ? $"{Math.Floor(timeLeft.TotalMinutes)} minutes left" :
+                            "Less than a minute left";
+                        <span title="@file.ExpiryTime.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")">@expiryText</span>
+                    }
+                    else
+                    {
+                        <span>Never</span>
+                    }
+                </td>
+                <td>@Environment.MachineName</td>
+                <td>
+                    @{
+                        var isAdmin = User.IsInRole(UserRoles.Admin);
+                        var canDelete = isAdmin || User.Identity?.Name == file.Owner;
+                    }
+                    @if (!string.IsNullOrEmpty(file.Owner))
+                    {
+                        <span>@file.Owner</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">-</span>
+                    }
+                </td>
+                @if (isImage)
+                {
+                    <td class="preview-cell">
+                        <img src="@Url.Action("ViewFile", "File", new { filename = file.FileName })" alt="Image Preview"
+                            class="preview-image" />
+                    </td>
+                }
+                else
+                {
+                    <td>N/A</td>
+                }
+                <td>
+                    <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank" class="action-link">📄 View
+                        File</a>
+                    <br />
+                    <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" class="action-link">⬇️ Download</a>
+                    <br />
+                    @if (isAdmin || User.Identity?.Name == file.Owner)
+                    {
+                        <a href="#" onclick="deleteFile('@file.FileName'); return false;" class="action-link delete-link">🗑️ Delete</a>
+                    }
+                </td>
+            </tr>
+
+            itemIndex++;
+        }
+    }
+    else
+    {
+        <tr>
+            <td colspan="8">
+                <p class="empty-message">No files uploaded yet...</p>
+            </td>
+        </tr>
+    }
+</table>

@@ -1,0 +1,150 @@
+@using Lebiru.FileService.Models
+@model PaginationModel
+
+<style>
+    .pagination-container {
+        flex-direction: column;
+        align-items: center;
+        margin: 20px auto;
+        gap: 16px;
+        width: 100%;
+        max-width: 600px;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .pagination-info {
+        color: inherit;
+        font-size: 0.9rem;
+        text-align: center;
+        margin-top: 4px;
+    }
+
+    .page-size-select {
+        background-color: inherit;
+        color: inherit;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-size: 14px;
+    }
+
+    body.dark-mode .page-size-select {
+        background-color: #2d2d2d;
+        border-color: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
+    .pagination-btn {
+        padding: 8px;
+        width: 36px;
+        height: 36px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        background-color: inherit;
+        color: inherit;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pagination-btn i {
+        font-size: 16px;
+        line-height: 1;
+        width: 16px;
+        height: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+        background-color: rgba(0, 0, 0, 0.1);
+        border-color: rgba(0, 0, 0, 0.3);
+    }
+
+    body.dark-mode .pagination-btn:hover:not(:disabled) {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    body.dark-mode .pagination-btn {
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .page-info-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .page-size-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        margin-top: 8px;
+    }
+
+    .items-info {
+        color: inherit;
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+
+    .table-container {
+        position: relative;
+        padding-bottom: 80px; /* Make space for pagination */
+    }
+</style>
+
+<div class="pagination-container">
+    <div class="pagination-controls">
+        <button class="pagination-btn page-first" onclick="goToFirstPage()" title="First Page" disabled="@(!Model.HasPreviousPage)">
+            <i class="fas fa-angle-double-left"></i>
+        </button>
+        <button class="pagination-btn page-prev" onclick="prevPage()" title="Previous Page" disabled="@(!Model.HasPreviousPage)">
+            <i class="fas fa-angle-left"></i>
+        </button>
+        <button class="pagination-btn page-next" onclick="nextPage()" title="Next Page" disabled="@(!Model.HasNextPage)">
+            <i class="fas fa-angle-right"></i>
+        </button>
+        <button class="pagination-btn page-last" onclick="goToLastPage()" title="Last Page" disabled="@(!Model.HasNextPage)">
+            <i class="fas fa-angle-double-right"></i>
+        </button>
+    </div>
+
+    <div class="page-info-container">
+        <div class="pagination-info">
+            Page <span id="currentPage">@Model.CurrentPage</span> of <span id="totalPages">@Model.TotalPages</span>
+        </div>
+
+        <div class="page-size-container">
+            <span>Items per page:</span>
+            <select id="itemsPerPage" class="page-size-select" onchange="changeItemsPerPage(this)">
+                @foreach (var size in PaginationModel.PageSizeOptions)
+                {
+                    <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                }
+            </select>
+            <span class="items-info">
+                Showing @(((Model.CurrentPage - 1) * Model.PageSize) + 1)-@(Math.Min(Model.CurrentPage * Model.PageSize, Model.TotalItems)) of @Model.TotalItems items
+            </span>
+        </div>
+    </div>
+</div>

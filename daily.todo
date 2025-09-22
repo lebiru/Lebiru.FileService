@@ -21,11 +21,11 @@ COMPLETE
 ✔️ default admin user security and authentication on Web UI
 ✔️ Default users: admin
 ✔️ set-expiration before document is deleted
+✔️ RBAC for Viewer, Contributor, admin
+✔️ unit tests with generate report
 
 TODO
 
-☐ RBAC for Viewer, Contributor, admin
-☐ unit tests with generate report
 ☐ k6 tests for testing
 ☐ FileTable UI upgrades: fix columns, pagination (first, last), Display 10,20,50
 ☐ Object lock to prevent deletion or modification 
