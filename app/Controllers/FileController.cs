@@ -18,7 +18,8 @@ namespace Lebiru.FileService.Controllers
     [Authorize]
     public class FileController : Controller
     {
-        private const string UploadsFolder = "uploads";
+    private const string UploadsFolder = "uploads";
+    private const string DataFolder = "app-data";
         private readonly CleanupJob _cleanupJob;
         private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly string _fileInfoPath;
@@ -68,7 +69,12 @@ namespace Lebiru.FileService.Controllers
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
-            _fileInfoPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, "fileInfo.json");
+            var dataDir = Path.Combine(Directory.GetCurrentDirectory(), DataFolder);
+            if (!Directory.Exists(dataDir))
+            {
+                Directory.CreateDirectory(dataDir);
+            }
+            _fileInfoPath = Path.Combine(dataDir, "fileInfo.json");
             _config = configuration.GetSection("FileService").Get<FileServiceConfig>() ?? new FileServiceConfig();
             _metricsService = metricsService ?? throw new ArgumentNullException(nameof(metricsService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
@@ -83,6 +89,11 @@ namespace Lebiru.FileService.Controllers
         {
             var serverSpaceInfo = GetServerSpaceInfo();
             var fileInfos = FileInfos;
+
+            // Default sort: newest first
+            fileInfos = fileInfos
+                .OrderByDescending(f => f.UploadTime)
+                .ToList();
             
             // Create pagination model with default values
             var pagination = new PaginationModel
@@ -103,6 +114,7 @@ namespace Lebiru.FileService.Controllers
             ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
             ViewBag.FileCount = fileInfos.Count;
             ViewBag.Pagination = pagination;
+            ViewBag.Sort = "upload_desc";
 
             // Check the Dark Mode setting
             var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
@@ -121,9 +133,23 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         /// <returns>A partial view with the paginated files</returns>
         [HttpGet("List")]
-        public IActionResult List(int page = 1, int itemsPerPage = 10)
+        public IActionResult List(int page = 1, int itemsPerPage = 10, string sort = "upload_desc")
         {
             var fileInfos = FileInfos;
+
+            // Apply sorting
+            fileInfos = sort switch
+            {
+                "upload_asc" => fileInfos.OrderBy(f => f.UploadTime).ToList(),
+                "name_asc" => fileInfos.OrderBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
+                "name_desc" => fileInfos.OrderByDescending(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
+                "size_asc" => fileInfos.OrderBy(f => f.FileSize).ToList(),
+                "size_desc" => fileInfos.OrderByDescending(f => f.FileSize).ToList(),
+                // Expiry: Soonest first puts null (Never) at the end; Latest first treats null as latest (top)
+                "expiry_asc" => fileInfos.OrderBy(f => f.ExpiryTime ?? DateTime.MaxValue).ToList(),
+                "expiry_desc" => fileInfos.OrderByDescending(f => f.ExpiryTime ?? DateTime.MaxValue).ToList(),
+                _ => fileInfos.OrderByDescending(f => f.UploadTime).ToList(), // upload_desc default
+            };
             
             // Ensure valid pagination parameters
             page = Math.Max(1, page);

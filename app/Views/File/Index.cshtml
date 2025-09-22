@@ -26,7 +26,6 @@
             color: white;
         }
 
-        .table-container,
         .settings-container {
             background-color: inherit;
             color: inherit;
@@ -67,8 +66,8 @@
         }
 
         img {
-            max-width: 100px;
-            max-height: 100px;
+            max-width: 95px;
+            max-height: 55px;
         }
 
         .pagination-container {
@@ -128,12 +127,7 @@
             margin: 25px;
         }
 
-        .table-container {
-            height: 450px;
-            /* Set the desired height */
-            overflow-y: auto;
-            /* Add vertical scrollbar if content exceeds height */
-        }
+        /* removed .table-container to prevent inner scrolling on file list */
 
         /* Zoomed image container */
         .zoom-container {
@@ -354,6 +348,31 @@
         .dark-mode .delete-link {
             color: #ff4d4d;
         }
+
+        /* Sort controls aligned top-right above the table */
+        .file-list-controls {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0 6px 0;
+        }
+
+        .sort-select {
+            background-color: inherit;
+            color: inherit;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 14px;
+            min-width: 220px;
+        }
+
+        body.dark-mode .sort-select {
+            background-color: #2d2d2d;
+            border-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
     </style>
 </head>
 
@@ -476,10 +495,23 @@
         </div>
     </div>
 
-    <div class="table-container">
-        <div id="fileList">
-            @await Html.PartialAsync("_FileList", Model)
-        </div>
+    <!-- Sort controls (top-right, above the table) -->
+    <div class="file-list-controls">
+        <label for="sortSelect">Sort:</label>
+        <select id="sortSelect" class="sort-select">
+            <option value="upload_desc">Upload Date (Newest First)</option>
+            <option value="upload_asc">Upload Date (Oldest First)</option>
+            <option value="name_asc">FileName (A-Z)</option>
+            <option value="name_desc">FileName (Z-A)</option>
+            <option value="size_desc">Size (Largest to Smallest)</option>
+            <option value="size_asc">Size (Smallest to Largest)</option>
+            <option value="expiry_asc">Expiry Time (Soonest to Latest)</option>
+            <option value="expiry_desc">Expiry Time (Latest to Soonest)</option>
+        </select>
+    </div>
+
+    <div id="fileList" data-current-sort="@ViewBag.Sort">
+        @await Html.PartialAsync("_FileList", Model)
     </div>
 
     <!-- Zoomed image container -->
@@ -496,11 +528,13 @@
     <script>
 
         var currentPage = 1;
-        var itemsPerPage = 5;
+    var itemsPerPage = 5;
+    var currentSort = (document.getElementById('fileList')?.dataset.currentSort) || 'upload_desc';
         var totalPages = 1;
 
         function loadPage(page) {
-            fetch('/File/List?page=' + page + '&itemsPerPage=' + itemsPerPage)
+            const sort = currentSort;
+            fetch('/File/List?page=' + page + '&itemsPerPage=' + itemsPerPage + '&sort=' + encodeURIComponent(sort))
                 .then(response => response.text())
                 .then(html => {
                     document.getElementById('fileList').innerHTML = html;
@@ -509,6 +543,21 @@
                 })
                 .catch(error => console.error('Error loading page:', error));
         }
+
+        // Initialize sort select and handle changes
+        (function(){
+            const sortSelect = document.getElementById('sortSelect');
+            if (sortSelect) {
+                // Set initial value
+                sortSelect.value = currentSort;
+                sortSelect.addEventListener('change', function(){
+                    currentSort = this.value;
+                    const list = document.getElementById('fileList');
+                    if (list) list.dataset.currentSort = currentSort;
+                    loadPage(1);
+                });
+            }
+        })();
 
         function goToPage(page) {
             if (page >= 1 && page <= totalPages) {

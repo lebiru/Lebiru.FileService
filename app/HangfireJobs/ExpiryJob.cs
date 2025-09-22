@@ -10,7 +10,8 @@ namespace Lebiru.FileService.HangfireJobs
     /// </summary>
     public class ExpiryJob
     {
-        private readonly string _uploadsDirectory;
+    private readonly string _uploadsDirectory;
+    private readonly string _dataDirectory;
         private readonly TracerProvider _tracerProvider;
 
         /// <summary>
@@ -22,6 +23,11 @@ namespace Lebiru.FileService.HangfireJobs
         {
             _uploadsDirectory = uploadsDirectory;
             _tracerProvider = tracerProvider;
+            _dataDirectory = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
+            if (!Directory.Exists(_dataDirectory))
+            {
+                Directory.CreateDirectory(_dataDirectory);
+            }
         }
 
         /// <summary>
@@ -34,7 +40,7 @@ namespace Lebiru.FileService.HangfireJobs
             var tracer = _tracerProvider.GetTracer("ExpiryJob");
             using var span = tracer.StartActiveSpan("DeleteExpiredFiles");
 
-            var fileInfoPath = Path.Combine(_uploadsDirectory, "fileInfo.json");
+            var fileInfoPath = Path.Combine(_dataDirectory, "fileInfo.json");
             if (!File.Exists(fileInfoPath))
             {
                 return;

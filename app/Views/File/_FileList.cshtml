@@ -2,6 +2,12 @@
 @model List<FileInfo>
 
 <style>
+    .file-list {
+        /* Let the list grow with content; no inner scrollbar */
+        border: 1px solid #dddddd;
+        border-radius: 4px;
+    }
+
     .file-table {
         border-collapse: collapse;
         width: 100%;
@@ -10,20 +16,35 @@
 
     .file-table th,
     .file-table td {
-        border: 1px solid #dddddd;
         padding: 8px;
         text-overflow: ellipsis;
         overflow: visible;
         white-space: nowrap;
         position: relative;
+        border: 1px solid #dddddd;
+    }
+
+    .file-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 2;
     }
 
     .file-table th {
+        font-weight: 600;
+        text-align: left;
+        background-color: #f8f9fa;
         position: sticky;
         top: 0;
-        background-color: #f8f9fa;
-        z-index: 1;
-        box-shadow: 0 1px 0 0 #dddddd;
+        z-index: 2;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-bottom: 2px solid #dddddd;
+    }
+
+    body.dark-mode .file-table th {
+        background-color: #2d2d2d;
+        border-color: #444;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .file-table tr:nth-child(even) {
@@ -204,18 +225,22 @@
     }
 </style>
 
-<table class="file-table">
-    <tr>
-        <th class="col-select">🔘</th>
-        <th class="col-filename">File Name</th>
-        <th class="col-size">Size</th>
-        <th class="col-time">Upload Time</th>
-        <th class="col-expiry">Expiry Time</th>
-        <th class="col-server">Server Name</th>
-        <th class="col-owner">Owner</th>
-        <th class="col-preview">Preview</th>
-        <th class="col-actions">Actions</th>
-    </tr>
+<div class="file-list">
+    <table class="file-table">
+        <thead>
+            <tr>
+                <th class="col-select">🔘</th>
+                <th class="col-filename">File Name</th>
+                <th class="col-size">Size</th>
+                <th class="col-time">Upload Time</th>
+                <th class="col-expiry">Expiry Time</th>
+                <th class="col-server">Server Name</th>
+                <th class="col-owner">Owner</th>
+                <th class="col-preview">Preview</th>
+                <th class="col-actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
     @if (Model.Count > 0)
     {
         int itemIndex = 0;
@@ -328,7 +353,9 @@
             </td>
         </tr>
     }
-</table>
+        </tbody>
+    </table>
+</div>
 
 <script>
     // Format upload times to local timezone
