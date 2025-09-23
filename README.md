@@ -18,6 +18,11 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **Job Monitoring**: 📊 Hangfire dashboard for monitoring file cleanup and expiry jobs.
 - **Console Logging**: 📝 Detailed logging of file deletions and cleanup operations.
 - **Dark Mode**: 🌙 Toggle between light and dark themes for better visibility.
+- **User Management**: 👥 Multi-user support with different roles (Admin/Contributor/Viewer).
+- **File Ownership**: 📋 Track file ownership and permissions per user.
+- **API Metrics**: 📈 Track usage metrics (uploads, downloads, deletions) with last update time.
+- **Data Persistence**: 💾 All data (user info, metrics, file info) persisted in app-data directory.
+- **Bulk Operations**: 🗑️ Support for operations like "Delete All Files" with proper cleanup.
 
 ## Technologies Used
 
@@ -47,12 +52,20 @@ The API documentation is available through Swagger. Once the application is runn
 
 ## Usage
 
-### Authentication
+### Authentication and Users
 
 - The application requires authentication for all features
-- An admin password is automatically generated at startup and displayed in the console
-- Login using the username `admin` and the generated password
+- Three user roles are available:
+  - **Admin**: Full access to all features including user management
+  - **Contributor**: Can upload and manage files
+  - **Viewer**: Can view and download files
+- Default users are created at first startup with generated passwords:
+  - `admin` (Admin role)
+  - `contributor` (Contributor role)
+  - `viewer` (Viewer role)
+- Passwords are displayed in the console at first startup
 - All API endpoints and web interfaces require authentication
+- Current user is displayed in the navigation bar
 
 ### File Operations
 
@@ -60,19 +73,25 @@ The API documentation is available through Swagger. Once the application is runn
   - Use the web interface or send a POST request to `/File/CreateDoc` with the file attached as form data
   - Set expiry time during upload (1 minute, 1 hour, 1 day, 1 week, or never)
   - Files are automatically deleted when they expire
+  - Files are associated with the uploading user
 - **Downloading Files**: 
   - Click the download link in the web interface or send a GET request to `/File/DownloadFile?filename=your_file_name`
   - Batch download multiple files as a ZIP archive
+  - Downloads are tracked in API metrics
 - **File Management**:
   - View list of all uploaded files with upload times and expiry status
   - See remaining time before file expiry
   - Automatic cleanup of expired files
   - Monitor file operations through Hangfire dashboard at `/hangfire`
+  - "Delete All Files" feature for admins with proper cleanup of all related data
 - **User Interface**:
   - Image previews for supported formats (PNG, JPG, GIF, BMP)
   - Click previews to view full-size images
   - Toggle dark mode for comfortable viewing
   - Search and filter files
+  - Sort files by various criteria (name, size, upload time, expiry)
+  - API metrics dashboard showing usage statistics
+  - Server space usage monitoring
 
 ## Deployment
 
