@@ -397,8 +397,8 @@ namespace Lebiru.FileService.Controllers
         public IActionResult TriggerCleanup()
         {
             // Enqueue both cleanup jobs
-            BackgroundJob.Enqueue(() => _cleanupJob.Execute(null!));
-            BackgroundJob.Enqueue<ExpiryJob>(job => job.DeleteExpiredFiles(null));
+            _backgroundJobClient.Enqueue(() => _cleanupJob.Execute(null!));
+            _backgroundJobClient.Enqueue<ExpiryJob>(job => job.DeleteExpiredFiles(null));
             
             return Ok("Cleanup jobs have been enqueued.");
         }

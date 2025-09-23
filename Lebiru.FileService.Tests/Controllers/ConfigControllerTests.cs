@@ -12,12 +12,14 @@ using System.Linq;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Session;
+using Lebiru.FileService.Services;
 
 namespace Lebiru.FileService.Tests.Controllers
 {
     public class ConfigControllerTests
     {
         private readonly Mock<IConfiguration> _configMock;
+        private readonly Mock<IUserService> _userServiceMock;
         private readonly ConfigController _controller;
 
         public ConfigControllerTests()
@@ -32,7 +34,8 @@ namespace Lebiru.FileService.Tests.Controllers
             _configMock.Setup(c => c.GetSection(It.IsAny<string>()))
                       .Returns(configSection.Object);
 
-            _controller = new ConfigController();
+            _userServiceMock = new Mock<IUserService>();
+            _controller = new ConfigController(_userServiceMock.Object);
 
             // Setup service provider with all required services
             var services = new ServiceCollection();
