@@ -27,28 +27,36 @@ namespace Lebiru.FileService.Controllers
         private readonly IApiMetricsService _metricsService;
         private readonly IUserService _userService;
 
+        private static readonly object _fileLock = new object();
+        
         private List<Models.FileInfo> FileInfos
         {
             get
             {
-                if (!System.IO.File.Exists(_fileInfoPath))
+                lock (_fileLock)
                 {
-                    return new List<Models.FileInfo>();
-                }
-                try
-                {
-                    var json = System.IO.File.ReadAllText(_fileInfoPath);
-                    return System.Text.Json.JsonSerializer.Deserialize<List<Models.FileInfo>>(json) ?? new();
-                }
-                catch
-                {
-                    return new List<Models.FileInfo>();
+                    if (!System.IO.File.Exists(_fileInfoPath))
+                    {
+                        return new List<Models.FileInfo>();
+                    }
+                    try
+                    {
+                        var json = System.IO.File.ReadAllText(_fileInfoPath);
+                        return System.Text.Json.JsonSerializer.Deserialize<List<Models.FileInfo>>(json) ?? new();
+                    }
+                    catch
+                    {
+                        return new List<Models.FileInfo>();
+                    }
                 }
             }
             set
             {
-                var json = System.Text.Json.JsonSerializer.Serialize(value);
-                System.IO.File.WriteAllText(_fileInfoPath, json);
+                lock (_fileLock)
+                {
+                    var json = System.Text.Json.JsonSerializer.Serialize(value);
+                    System.IO.File.WriteAllText(_fileInfoPath, json);
+                }
             }
         }
 
@@ -108,8 +116,13 @@ namespace Lebiru.FileService.Controllers
                 .Take(pagination.PageSize)
                 .ToList();
 
-            ViewBag.UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace);
-            ViewBag.TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace);
+            // Get fresh server space info
+            var spaceInfo = GetServerSpaceInfo();
+            ViewBag.UsedSpace = FormatBytes(spaceInfo.UsedSpace);
+            ViewBag.TotalSpace = FormatBytes(spaceInfo.TotalSpace);
+            ViewBag.UsedSpacePercent = Math.Round((double)spaceInfo.UsedSpace / spaceInfo.TotalSpace * 100, 2);
+            ViewBag.WarningThresholdPercent = _config.WarningThresholdPercent;
+            ViewBag.CriticalThresholdPercent = _config.CriticalThresholdPercent;
             ViewBag.ExpiryOptions = Enum.GetValues<ExpiryOption>();
             ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
             ViewBag.FileCount = fileInfos.Count;
@@ -241,6 +254,9 @@ namespace Lebiru.FileService.Controllers
                 {
                     await file.CopyToAsync(stream);
                 }
+                
+                // Flush to ensure the file is written to disk
+                System.IO.File.SetLastWriteTimeUtc(filePath, DateTime.UtcNow);
 
                 // Add file ownership
                 var username = User.Identity?.Name;
@@ -329,7 +345,21 @@ namespace Lebiru.FileService.Controllers
             if (!directoryInfo.Exists)
                 return 0;
 
-            return directoryInfo.GetFiles().Sum(file => file.Length);
+            // Get fresh file info and handle any locked files
+            return directoryInfo.GetFiles().Sum(file => {
+                try
+                {
+                    file.Refresh();
+                    using (var fs = file.OpenRead())
+                    {
+                        return fs.Length;
+                    }
+                }
+                catch (IOException)
+                {
+                    return file.Length;
+                }
+            });
         }
 
         /// <summary>
@@ -459,12 +489,18 @@ namespace Lebiru.FileService.Controllers
         public IActionResult AvailableSpace()
         {
             var serverSpaceInfo = GetServerSpaceInfo();
+            var usedSpacePercent = (double)serverSpaceInfo.UsedSpace / serverSpaceInfo.TotalSpace * 100;
 
             var response = new
             {
                 TotalSpace = FormatBytes(serverSpaceInfo.TotalSpace),
                 FreeSpace = FormatBytes(serverSpaceInfo.FreeSpace),
-                UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace)
+                UsedSpace = FormatBytes(serverSpaceInfo.UsedSpace),
+                UsedSpacePercent = Math.Round(usedSpacePercent, 2),
+                WarningThresholdPercent = _config.WarningThresholdPercent,
+                CriticalThresholdPercent = _config.CriticalThresholdPercent,
+                Status = usedSpacePercent >= _config.CriticalThresholdPercent ? "critical" :
+                        usedSpacePercent >= _config.WarningThresholdPercent ? "warning" : "normal"
             };
 
             return Ok(response);
@@ -477,13 +513,29 @@ namespace Lebiru.FileService.Controllers
             var uploadsDirectory = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder));
             if (uploadsDirectory.Exists)
             {
-                foreach (var file in uploadsDirectory.GetFiles())
+                // Get a fresh list of files to ensure we have current data
+                var files = uploadsDirectory.GetFiles();
+                foreach (var file in files)
                 {
-                    usedSpace += file.Length;
+                    try
+                    {
+                        // Refresh the file info to get current size
+                        file.Refresh();
+                        // Try to open file to ensure we can access it
+                        using (var fs = file.OpenRead())
+                        {
+                            usedSpace += fs.Length;
+                        }
+                    }
+                    catch (IOException)
+                    {
+                        // If we can't access the file, use the last known size
+                        usedSpace += file.Length;
+                    }
                 }
             }
 
-            // Convert configured GB to bytes
+            // Convert configured GB to bytes (ensure we use long for large numbers)
             long maxDiskSpaceBytes = _config.MaxDiskSpaceGB * 1024L * 1024L * 1024L;
 
             return new ServerSpaceInfo(maxDiskSpaceBytes)
@@ -567,13 +619,17 @@ namespace Lebiru.FileService.Controllers
             string[] suffixes = { "B", "KB", "MB", "GB", "TB", "PB" };
             int counter = 0;
             decimal number = bytes;
-            while (Math.Round(number / 1024) >= 1)
+            
+            // Convert without rounding until we reach the final unit
+            while (number >= 1024)
             {
                 number /= 1024;
                 counter++;
             }
 
-            return $"{number:n1} {suffixes[counter]}";
+            // Use n2 format for MB and above, n0 for KB and below
+            string format = counter >= 2 ? "n2" : "n0";
+            return $"{number.ToString(format)} {suffixes[counter]}";
         }
 
 

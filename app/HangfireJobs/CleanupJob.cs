@@ -55,8 +55,26 @@ public class CleanupJob
                 var fileInfoPath = Path.Combine(_dataDirectory, "fileInfo.json");
                 if (File.Exists(fileInfoPath))
                 {
-                    File.WriteAllText(fileInfoPath, "[]");
-                    context.WriteLine("📄 Cleared fileInfo.json", ConsoleTextColor.Green);
+                    for (int retries = 0; retries < 3; retries++)
+                    {
+                        try
+                        {
+                            // Use FileShare.None to ensure exclusive access
+                            using (var fs = new FileStream(fileInfoPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                            using (var writer = new StreamWriter(fs))
+                            {
+                                writer.Write("[]");
+                            }
+                            context.WriteLine("📄 Cleared fileInfo.json", ConsoleTextColor.Green);
+                            break;
+                        }
+                        catch (IOException) when (retries < 2)
+                        {
+                            // If file is locked, wait a bit and retry
+                            context.WriteLine($"⌛ File is locked, retrying... (attempt {retries + 1}/3)", ConsoleTextColor.Yellow);
+                            Thread.Sleep(500);
+                        }
+                    }
                 }
 
                 // Clear owned files from all users

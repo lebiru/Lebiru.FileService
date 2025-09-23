@@ -78,7 +78,8 @@ namespace Lebiru.FileService.Controllers
         {
             { "FileService:MaxFileSizeMB", "Maximum allowed size for individual file uploads in megabytes" },
             { "FileService:MaxDiskSpaceGB", "Maximum disk space allowed for file storage in gigabytes" },
-            { "FileService:WarningThresholdPercent", "Percentage of disk space at which warnings will be triggered" },
+            { "FileService:WarningThresholdPercent", "Percentage of disk space at which warning (yellow) indicators will be shown" },
+            { "FileService:CriticalThresholdPercent", "Percentage of disk space at which critical (red) indicators will be shown" },
             { "ASPNETCORE_ENVIRONMENT", "Current environment (Development/Production) affecting application behavior and features" },
             { "TZ", "Server timezone setting used for timestamp calculations" },
             { "PORT", "The port number on which the application is running" },
@@ -98,6 +99,12 @@ namespace Lebiru.FileService.Controllers
         {
             relevantVariables["FileService:MaxFileSizeMB"] = 
                 fileServiceConfig?.MaxFileSizeMB.ToString() ?? "100";
+            relevantVariables["FileService:MaxDiskSpaceGB"] = 
+                fileServiceSection["MaxDiskSpaceGB"] ?? "100";
+            relevantVariables["FileService:WarningThresholdPercent"] = 
+                fileServiceConfig?.WarningThresholdPercent.ToString() ?? "90";
+            relevantVariables["FileService:CriticalThresholdPercent"] = 
+                fileServiceConfig?.CriticalThresholdPercent.ToString() ?? "99";
             relevantVariables["FileService:MaxDiskSpaceGB"] = 
                 fileServiceSection["MaxDiskSpaceGB"] ?? "100";
             relevantVariables["FileService:WarningThresholdPercent"] = 

@@ -252,7 +252,15 @@
             height: 100%;
             background: var(--progress-fill, #0d6efd);
             border-radius: 3px;
-            transition: width 0.3s ease;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .progress-fill.warning {
+            background: var(--progress-warning, #ffc107);
+        }
+
+        .progress-fill.critical {
+            background: var(--progress-critical, #dc3545);
         }
 
         .progress-text {
@@ -267,6 +275,8 @@
 
         body.dark-mode .progress-fill {
             --progress-fill: #0d6efd;
+            --progress-warning: #ffc107;
+            --progress-critical: #dc3545;
         }
 
         body.dark-mode .progress-text {
@@ -408,47 +418,50 @@
                 @{
                     // Parse the bytes values from ViewBag strings
                     var usedSpaceStr = ViewBag.UsedSpace.ToString();
-                    var totalSpaceStr = ViewBag.TotalSpace.ToString();                // Extract numeric values (assuming format like "21.7 MB")
-                var usedValue = double.Parse(usedSpaceStr.Split(' ')[0]);
-                var usedUnit = usedSpaceStr.Split(' ')[1];
-                var totalValue = double.Parse(totalSpaceStr.Split(' ')[0]);
-                var totalUnit = totalSpaceStr.Split(' ')[1];
-                
-                // Convert to same unit if different
-                if (usedUnit != totalUnit)
-                {
-                    // Simple conversion - this could be more sophisticated
-                    var units = new[] { "B", "KB", "MB", "GB", "TB" };
-                    var usedIdx = Array.IndexOf(units, usedUnit);
-                    var totalIdx = Array.IndexOf(units, totalUnit);
-                    while (usedIdx < totalIdx)
+                    var totalSpaceStr = ViewBag.TotalSpace.ToString();
+                    
+                    // Helper function to convert to bytes
+                    long ParseToBytes(string str)
                     {
-                        usedValue /= 1024;
-                        usedIdx++;
+                        var parts = str.Split(' ');
+                        var value = double.Parse(parts[0]);
+                        var unit = parts[1];
+                        var units = new[] { "B", "KB", "MB", "GB", "TB" };
+                        var idx = Array.IndexOf(units, unit);
+                        var bytes = value;
+                        for (var i = 0; i < idx; i++)
+                        {
+                            bytes *= 1024;
+                        }
+                        return (long)bytes;
                     }
-                    while (totalIdx < usedIdx)
+                    
+                    // Convert both values to bytes
+                    var usedBytes = ParseToBytes(usedSpaceStr);
+                    var totalBytes = ParseToBytes(totalSpaceStr);
+                    
+                    // Calculate percentage
+                    var percentage = ((double)usedBytes / totalBytes) * 100;
+                    
+                    // Determine the progress bar class based on thresholds
+                    var fillClass = "progress-fill";
+                    if (percentage >= ViewBag.CriticalThresholdPercent)
                     {
-                        totalValue /= 1024;
-                        totalIdx++;
+                        fillClass += " critical";
+                    }
+                    else if (percentage >= ViewBag.WarningThresholdPercent)
+                    {
+                        fillClass += " warning";
                     }
                 }
-                
-                // Calculate percentage
-                var percentage = (usedValue / totalValue) * 100;
-                
-                // Create ASCII progress bar (50 chars wide)
-                const int width = 50;
-                var filledChars = (int)Math.Round((percentage / 100) * width);
-                var progressBar = "[" + new string('█', filledChars) + new string('░', width - filledChars) + "]";
-            }
-            <div style="font-family: monospace; white-space: pre;">
-                <div class="progress-bar-container">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: @percentage.ToString("F2")%"></div>
+                <div style="font-family: monospace; white-space: pre;">
+                    <div class="progress-bar-container" title="Warning at @ViewBag.WarningThresholdPercent%, Critical at @ViewBag.CriticalThresholdPercent%">
+                        <div class="progress-bar">
+                            <div class="@fillClass" style="width: @percentage.ToString("F2")%"></div>
+                        </div>
+                        <span class="progress-text">@percentage.ToString("F2")%</span>
                     </div>
-                    <span class="progress-text">@percentage.ToString("F2")%</span>
-                </div>
-                <div class="progress-text">@ViewBag.UsedSpace of @ViewBag.TotalSpace</div>
+                    <div class="progress-text" title="Maximum allowed space: @ViewBag.TotalSpace">@ViewBag.UsedSpace of @ViewBag.TotalSpace</div>
             </div>
             </div>
             </div>

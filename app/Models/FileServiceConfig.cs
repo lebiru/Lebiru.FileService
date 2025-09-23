@@ -19,5 +19,10 @@ namespace Lebiru.FileService.Models
         /// Percentage threshold at which warnings will be shown. Defaults to 90%.
         /// </summary>
         public int WarningThresholdPercent { get; set; } = 90;
+
+        /// <summary>
+        /// Percentage threshold at which critical warnings will be shown. Defaults to 99%.
+        /// </summary>
+        public int CriticalThresholdPercent { get; set; } = 99;
     }
 }
