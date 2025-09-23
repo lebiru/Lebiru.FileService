@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using System.Linq.Expressions;
+using System.Security.Claims;
 using Xunit;
 using Moq;
 using Microsoft.Extensions.Configuration;
@@ -14,21 +16,28 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Session;
+using Hangfire.MemoryStorage;
+using Lebiru.FileService.HangfireJobs;
 
 namespace Lebiru.FileService.Tests.Controllers
 {
-    public class FileControllerTests
+    public class FileControllerTests : IDisposable
     {
         private readonly Mock<IConfiguration> _configMock;
         private readonly Mock<IBackgroundJobClient> _backgroundJobClientMock;
         private readonly Mock<IApiMetricsService> _metricsServiceMock;
+        private readonly Mock<IUserService> _userServiceMock;
         private readonly FileController _controller;
         private readonly FileServiceConfig _config;
+        private readonly string _tempPath;
 
         private const string UploadsFolder = "uploads";
 
         public FileControllerTests()
         {
+            // Initialize Hangfire storage
+            GlobalConfiguration.Configuration.UseMemoryStorage();
+
             // Set up configuration
             _config = new FileServiceConfig
             {
@@ -48,17 +57,26 @@ namespace Lebiru.FileService.Tests.Controllers
             _metricsServiceMock = new Mock<IApiMetricsService>();
 
             // Set up temp directory for uploads
-            var tempPath = Path.Combine(Path.GetTempPath(), "FileServiceTests");
-            Directory.CreateDirectory(tempPath);
+            _tempPath = Path.Combine(Path.GetTempPath(), "FileServiceTests");
+            Directory.CreateDirectory(_tempPath);
+
+            // Set up user service mock
+            _userServiceMock = new Mock<IUserService>();
+            _userServiceMock.Setup(u => u.AddFileToUser(It.IsAny<string>(), It.IsAny<string>()));
+            _userServiceMock.Setup(u => u.IsFileOwner(It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+
+            // Set up metrics service mock
+            _metricsServiceMock.Setup(m => m.LastUpdated).Returns(DateTime.UtcNow);
 
             var tracerProvider = TracerProvider.Default;
-            var cleanupJob = new CleanupJob(tempPath, tracerProvider);
+            var cleanupJob = new CleanupJob(_tempPath, tracerProvider, _userServiceMock.Object);
 
             _controller = new FileController(
                 cleanupJob,
                 _backgroundJobClientMock.Object,
                 _configMock.Object,
-                _metricsServiceMock.Object);
+                _metricsServiceMock.Object,
+                _userServiceMock.Object);
 
             // Setup controller context
             // Set up service provider with all required services
@@ -69,6 +87,11 @@ namespace Lebiru.FileService.Tests.Controllers
             services.AddSingleton(_configMock.Object);
             services.AddSingleton(_backgroundJobClientMock.Object);
             services.AddSingleton(_metricsServiceMock.Object);
+
+            // Set up Hangfire storage for tests
+            services.AddHangfire(config => config.UseMemoryStorage());
+            services.AddHangfireServer();
+
             var serviceProvider = services.BuildServiceProvider();
 
             var httpContext = new DefaultHttpContext();
@@ -133,7 +156,109 @@ namespace Lebiru.FileService.Tests.Controllers
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(400, result.StatusCode);
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal(400, badRequestResult.StatusCode);
+        }
+
+        [Fact]
+        public async Task Given_FileUpload_When_UploadSucceeds_Then_AssignsFileOwnership()
+        {
+            // Arrange
+            var fileName = "test.txt";
+            var content = "test content";
+            var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content));
+            var username = "testuser";
+
+            var fileMock = new Mock<IFormFile>();
+            fileMock.Setup(f => f.Length).Returns(content.Length);
+            fileMock.Setup(f => f.FileName).Returns(fileName);
+            fileMock.Setup(f => f.OpenReadStream()).Returns(stream);
+
+            // Create a ClaimsPrincipal with the test username
+            var claims = new System.Security.Claims.Claim[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, username)
+            };
+            var identity = new System.Security.Claims.ClaimsIdentity(claims);
+            var principal = new System.Security.Claims.ClaimsPrincipal(identity);
+            _controller.ControllerContext.HttpContext.User = principal;
+
+            // Act
+            var result = await _controller.Upload(new List<IFormFile> { fileMock.Object }, ExpiryOption.Never);
+
+            // Assert
+            Assert.NotNull(result);
+            var objectResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(200, objectResult.StatusCode);
+            _userServiceMock.Verify(u => u.AddFileToUser(username, It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public void Given_IndexRequest_When_MetricsExist_Then_IncludesLastUpdatedTime()
+        {
+            // Arrange
+            var lastUpdated = DateTime.UtcNow;
+            _metricsServiceMock.Setup(m => m.LastUpdated).Returns(lastUpdated);
+
+            // Act
+            var result = _controller.Index() as ViewResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.NotNull(result.ViewData["MetricsLastUpdated"]);
+            Assert.Equal(lastUpdated, result.ViewData["MetricsLastUpdated"]);
+        }
+
+        [Fact]
+        public void Given_DeleteAllFiles_When_Triggered_Then_ClearsFilesAndMetadata()
+        {
+            // Arrange
+            var filesToDelete = new[] { "test1.txt", "test2.txt" };
+            foreach (var file in filesToDelete)
+            {
+                var filePath = Path.Combine(_tempPath, file);
+                File.WriteAllText(filePath, "test content");
+            }
+
+            // Set up Hangfire storage and background job client
+            var storage = new MemoryStorage();
+            JobStorage.Current = storage;
+            var backgroundClient = new BackgroundJobClient(storage);
+            var cleanupJob = new CleanupJob(_tempPath, TracerProvider.Default, _userServiceMock.Object);
+
+            var controller = new FileController(
+                cleanupJob,
+                backgroundClient,
+                _configMock.Object,
+                _metricsServiceMock.Object,
+                _userServiceMock.Object);
+
+            // Act
+            var result = controller.TriggerCleanup() as ObjectResult;
+
+            // Assert
+            Assert.NotNull(result);
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(200, okResult.StatusCode);
+
+            var jobStorage = JobStorage.Current;
+            var count = jobStorage.GetMonitoringApi().EnqueuedCount("default");
+            Assert.Equal(2, count);
+
+            // Clean up test files
+            if (Directory.Exists(_tempPath))
+            {
+                Directory.Delete(_tempPath, true);
+            }
+        }
+
+        public void Dispose()
+        {
+            // Clean up test directory
+            if (Directory.Exists(_tempPath))
+            {
+                Directory.Delete(_tempPath, true);
+            }
         }
     }
 }

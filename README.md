@@ -46,6 +46,23 @@ To run the application locally, follow these steps:
 4. **Run the application** using the IDE's built-in tools or command-line interface.
 5. **Access the application** through the provided URL (e.g., `http://localhost:port`).
 
+## Testing
+
+The project includes a comprehensive test suite. To run the tests and generate a coverage report:
+
+1. Run the tests with coverage:
+```powershell
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+2. Generate an HTML report (replace the coverage GUID with your actual generated GUID):
+```powershell
+cd Lebiru.FileService.Tests
+reportgenerator -reports:"TestResults\{guid}\coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Html
+```
+
+The HTML report will be generated in the `Lebiru.FileService.Tests\coveragereport` directory. Open `index.html` in your browser to view a detailed breakdown of code coverage across the project.
+
 ## API Documentation
 
 The API documentation is available through Swagger. Once the application is running, you can access the Swagger UI by navigating to `/swagger` in your browser.
