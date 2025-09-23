@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Lebiru.FileService.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Security.Claims;
@@ -81,6 +82,8 @@ namespace Lebiru.FileService.Services
     {
         private readonly List<UserModel> _users = new();
         private readonly ILogger<UserService> _logger;
+        private readonly string _filePath;
+        private readonly object _sync = new();
         private const int PasswordLength = 32;
 
         /// <summary>
@@ -89,7 +92,18 @@ namespace Lebiru.FileService.Services
         public UserService(ILogger<UserService> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            CreateDefaultUsers();
+            
+            // Set up persistence file path
+            var dataDir = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
+            Directory.CreateDirectory(dataDir);
+            _filePath = Path.Combine(dataDir, "userInfo.json");
+            
+            // Load existing users or create defaults
+            Load();
+            if (!_users.Any())
+            {
+                CreateDefaultUsers();
+            }
         }
 
         private void CreateDefaultUsers()
@@ -169,8 +183,10 @@ namespace Lebiru.FileService.Services
             {
                 Username = username,
                 Password = password,
-                Role = role
+                Role = role,
+                OwnedFiles = new List<string>()
             });
+            Save();
         }
 
         /// <inheritdoc />
@@ -200,6 +216,7 @@ namespace Lebiru.FileService.Services
             if (user != null && !user.OwnedFiles.Contains(filePath))
             {
                 user.OwnedFiles.Add(filePath);
+                Save();
             }
         }
 
@@ -209,6 +226,47 @@ namespace Lebiru.FileService.Services
             foreach (var user in _users)
             {
                 user.OwnedFiles.Remove(filePath);
+            }
+            Save();
+        }
+
+        private void Load()
+        {
+            try
+            {
+                if (File.Exists(_filePath))
+                {
+                    var json = File.ReadAllText(_filePath);
+                    var users = JsonSerializer.Deserialize<List<UserModel>>(json);
+                    if (users != null)
+                    {
+                        _users.Clear();
+                        _users.AddRange(users);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading user data");
+                // Start fresh if load fails
+                _users.Clear();
+            }
+        }
+
+        private void Save()
+        {
+            try
+            {
+                lock (_sync)
+                {
+                    var json = JsonSerializer.Serialize(_users);
+                    File.WriteAllText(_filePath, json);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving user data");
+                // Continue even if save fails to avoid disrupting operations
             }
         }
     }

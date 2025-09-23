@@ -37,6 +37,11 @@
                             <a class="nav-link" href="/Config/View">ConfigView</a>
                         </li>
                         <li class="nav-item">
+                            <span class="nav-link">
+                                <i class="fas fa-user"></i> @User.Identity?.Name
+                            </span>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="/Auth/Logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </li>
                     </ul>

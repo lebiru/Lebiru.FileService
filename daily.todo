@@ -23,11 +23,11 @@ COMPLETE
 ✔️ set-expiration before document is deleted
 ✔️ RBAC for Viewer, Contributor, admin
 ✔️ unit tests with generate report
+✔️ FileTable UI upgrades: fix columns, pagination (first, last), Display 10,20,50
 
 TODO
 
 ☐ k6 tests for testing
-☐ FileTable UI upgrades: fix columns, pagination (first, last), Display 10,20,50
 ☐ Object lock to prevent deletion or modification 
 ☐ White label for your company needs, replace Lebiru.FileService with company logo 200x200 (jpg or png)
 ☐ Encryption 

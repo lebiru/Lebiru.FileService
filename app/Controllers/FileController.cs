@@ -124,6 +124,7 @@ namespace Lebiru.FileService.Controllers
             ViewBag.UploadCount = _metricsService.UploadCount;
             ViewBag.DownloadCount = _metricsService.DownloadCount;
             ViewBag.DeleteCount = _metricsService.DeleteCount;
+            ViewBag.MetricsLastUpdated = _metricsService.LastUpdated;
 
             return View(paginatedFiles);
         }

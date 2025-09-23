@@ -3,6 +3,8 @@ using System.IO;
 using Hangfire.Console;
 using Hangfire.Server;
 using OpenTelemetry.Trace;
+using Lebiru.FileService.Models;
+using Lebiru.FileService.Services;
 
 /// <summary>
 /// Job for cleaning up uploaded files based on configured rules
@@ -10,17 +12,22 @@ using OpenTelemetry.Trace;
 public class CleanupJob
 {
     private readonly string _fileDirectory;
+    private readonly string _dataDirectory;
     private readonly Tracer _tracer;
+    private readonly IUserService _userService;
 
     /// <summary>
     /// Initializes a new instance of the CleanupJob class
     /// </summary>
     /// <param name="fileDirectory">The directory containing files to clean up</param>
     /// <param name="tracerProvider">The OpenTelemetry tracer provider for monitoring</param>
-    public CleanupJob(string fileDirectory, TracerProvider tracerProvider)
+    /// <param name="userService">The user service for managing file ownership</param>
+    public CleanupJob(string fileDirectory, TracerProvider tracerProvider, IUserService userService)
     {
         _fileDirectory = fileDirectory;
+        _dataDirectory = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
         _tracer = tracerProvider.GetTracer("Hangfire");
+        _userService = userService;
     }
 
     /// <summary>
@@ -44,14 +51,33 @@ public class CleanupJob
 
             try
             {
-                var files = Directory.GetFiles(_fileDirectory);
-                if (files.Length == 0)
+                // First, clear the fileInfo.json
+                var fileInfoPath = Path.Combine(_dataDirectory, "fileInfo.json");
+                if (File.Exists(fileInfoPath))
                 {
-                    context.WriteLine($"✅ No files to delete in {_fileDirectory}", ConsoleTextColor.Green);
-                    span.SetAttribute("NoFilesToDelete", "true");
-                    return;
+                    File.WriteAllText(fileInfoPath, "[]");
+                    context.WriteLine("📄 Cleared fileInfo.json", ConsoleTextColor.Green);
                 }
 
+                // Clear owned files from all users
+                try
+                {
+                    var users = _userService.GetAllUsers();
+                    foreach (var user in users)
+                    {
+                        foreach (var file in user.OwnedFiles.ToList()) // Use ToList to avoid modification during enumeration
+                        {
+                            _userService.RemoveFileFromUser(file);
+                        }
+                    }
+                    context.WriteLine("👤 Cleared owned files from all users", ConsoleTextColor.Green);
+                }
+                catch (Exception ex)
+                {
+                    context.WriteLine($"⚠️ Warning: Could not clear user file ownership: {ex.Message}", ConsoleTextColor.Yellow);
+                }
+
+                var files = Directory.GetFiles(_fileDirectory);
                 context.WriteLine($"📁 Found {files.Length} file(s) to delete.", ConsoleTextColor.White);
                 span.SetAttribute("File Info", $"📁 Found {files.Length} file(s) to delete.");
 

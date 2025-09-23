@@ -57,7 +57,10 @@ builder.Services.AddHangfireServer();
 
 // Register the cleanup jobs
 builder.Services.AddTransient(provider => 
-    new CleanupJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
+    new CleanupJob(
+        "./uploads/", 
+        provider.GetRequiredService<TracerProvider>(),
+        provider.GetRequiredService<IUserService>()));
 builder.Services.AddTransient(provider => 
     new ExpiryJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
 
