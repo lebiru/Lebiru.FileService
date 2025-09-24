@@ -11,6 +11,11 @@
         .footer-container {
             margin-top: 10px;
         }
+
+        .footer-bottom {
+            margin: 0px 0px 50px 0px;
+        }
+
     </style>
     @RenderSection("Styles", required: false)
 </head>
@@ -56,7 +61,7 @@
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
+    <footer class="border-top footer text-muted footer-bottom">
         <div class="container footer-container">
             &copy; @DateTime.Now.Year - Lebiru.FileServer Version: @ViewContext.HttpContext.Items["Version"] (@ViewContext.HttpContext.Items["GitCommit"])
         </div>
