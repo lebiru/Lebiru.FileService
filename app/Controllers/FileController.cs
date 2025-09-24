@@ -338,6 +338,29 @@ namespace Lebiru.FileService.Controllers
             var mimeType = GetMimeType(filePath);
             return PhysicalFile(filePath, mimeType, enableRangeProcessing: true);
         }
+        
+        /// <summary>
+        /// Views a file in the browser in print mode
+        /// </summary>
+        /// <param name="filename">The name of the file to print</param>
+        /// <returns>The file content with appropriate MIME type for printing</returns>
+        [HttpGet("PrintFile")]
+        public IActionResult PrintFile(string filename)
+        {
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found.");
+
+            var mimeType = GetMimeType(filePath);
+            
+            // Add JavaScript to automatically open print dialog
+            ViewBag.Filename = filename;
+            ViewBag.MimeType = mimeType;
+            ViewBag.FilePath = Url.Action("ViewFile", "File", new { filename });
+            
+            return View("PrintView");
+        }
 
         private long GetTotalSpaceUsed(string directoryPath)
         {

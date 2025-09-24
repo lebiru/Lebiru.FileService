@@ -9,6 +9,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **Secure Authentication**: 🔒 Admin authentication required to access all features and endpoints.
 - **File Upload**: Users can upload files to the server.
 - **File Download**: Users can download files from the server.
+- **File Printing**: 🖨️ Users can easily print files directly from the web interface.
 - **Multi-File Download to Zip**: Users can download multiple files into a zip from the server. (@alfcanres)
 - **File Listing**: Users can view a list of uploaded files along with their upload times.
 - **Image Preview**: 🖼️ Image files are displayed with a preview in the web interface.
@@ -95,6 +96,10 @@ The API documentation is available through Swagger. Once the application is runn
   - Click the download link in the web interface or send a GET request to `/File/DownloadFile?filename=your_file_name`
   - Batch download multiple files as a ZIP archive
   - Downloads are tracked in API metrics
+- **Printing Files**:
+  - Use the Print button in the file actions menu to open the browser's print dialog
+  - Optimized print layout for different file types (images, PDFs, text)
+  - Print directly from the application without downloading files first
 - **File Management**:
   - View list of all uploaded files with upload times and expiry status
   - See remaining time before file expiry
