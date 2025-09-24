@@ -466,6 +466,11 @@
                                title="Open the file in a new browser tab to view or preview its contents">
                                 <i class="fas fa-eye"></i> View File
                             </a>
+                            <button onclick="copyChecksum('@file.FileName'); return false;" 
+                               class="action-item"
+                               title="Copy SHA-256 checksum to clipboard">
+                                <i class="fas fa-fingerprint"></i> Copy Checksum
+                            </button>
                             <a href="@Url.Action("DownloadFile", "File", new { filename = file.FileName })" 
                                class="action-item"
                                title="Download this file to your computer">
@@ -918,6 +923,41 @@
         .catch(error => {
             console.error('Error copying file:', error);
             showNotification(error.message || 'An error occurred while copying the file.', 'error');
+        });
+    }
+    
+    function copyChecksum(filename) {
+        // Show loading notification
+        showNotification('Fetching checksum...', 'info');
+        
+        // Fetch the checksum from the server
+        fetch(`/File/Checksum?filename=${encodeURIComponent(filename)}`, {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(text || `Error: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Copy checksum to clipboard
+            navigator.clipboard.writeText(data.checksum)
+                .then(() => {
+                    // Show success notification
+                    showNotification(`SHA-256 checksum copied to clipboard`, 'success');
+                })
+                .catch(err => {
+                    console.error('Error copying to clipboard:', err);
+                    showNotification('Failed to copy checksum to clipboard', 'error');
+                });
+        })
+        .catch(error => {
+            console.error('Error fetching checksum:', error);
+            showNotification(error.message || 'An error occurred while getting the file checksum.', 'error');
         });
     }
     
