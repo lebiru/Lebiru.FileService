@@ -24,11 +24,11 @@ COMPLETE
 ✔️ RBAC for Viewer, Contributor, admin
 ✔️ unit tests with generate report
 ✔️ FileTable UI upgrades: fix columns, pagination (first, last), Display 10,20,50
+✔️ Print
+✔️ Rename
 
 TODO
 
-☐ Print
-☐ Rename
 ☐ Copy
 ☐ Icon for file types
 ☐ Checksum sha 256

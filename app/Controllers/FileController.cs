@@ -587,6 +587,88 @@ namespace Lebiru.FileService.Controllers
         }
 
         /// <summary>
+        /// Renames a file on the server and updates all references
+        /// </summary>
+        /// <param name="oldFilename">The current name of the file</param>
+        /// <param name="newFilename">The new name for the file</param>
+        /// <returns>Success or error message</returns>
+        [HttpPost("RenameFile")]
+        public IActionResult RenameFile([FromForm] string oldFilename, [FromForm] string newFilename)
+        {
+            try
+            {
+                // Validate input
+                if (string.IsNullOrWhiteSpace(newFilename))
+                {
+                    return BadRequest("New filename cannot be empty.");
+                }
+                
+                // Ensure the new filename has the same extension to prevent type changing
+                var oldExtension = Path.GetExtension(oldFilename);
+                var newExtension = Path.GetExtension(newFilename);
+                if (string.IsNullOrEmpty(newExtension))
+                {
+                    // If no extension provided, add the old one
+                    newFilename = newFilename + oldExtension;
+                }
+                else if (!oldExtension.Equals(newExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("Changing file extension is not allowed. New filename must have the same extension as the original.");
+                }
+                
+                var oldFilePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, oldFilename);
+                var newFilePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
+                
+                // Check if source file exists
+                if (!System.IO.File.Exists(oldFilePath))
+                {
+                    return NotFound($"File '{oldFilename}' not found.");
+                }
+                
+                // Check if target file already exists
+                if (System.IO.File.Exists(newFilePath))
+                {
+                    return BadRequest($"File '{newFilename}' already exists. Please choose a different name.");
+                }
+                
+                // Check if user has permission to modify the file
+                var username = User.Identity?.Name;
+                if (username == null)
+                {
+                    return Unauthorized();
+                }
+                
+                var userRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (userRole != UserRoles.Admin && !_userService.IsFileOwner(username, oldFilePath))
+                {
+                    return Forbid();
+                }
+                
+                // Rename the physical file
+                System.IO.File.Move(oldFilePath, newFilePath);
+                
+                // Update file references in userInfo.json
+                _userService.UpdateFilePath(oldFilePath, newFilePath);
+                
+                // Update fileInfo.json
+                var fileInfos = FileInfos;
+                var fileInfo = fileInfos.FirstOrDefault(f => f.FileName == oldFilename);
+                if (fileInfo != null)
+                {
+                    fileInfo.FileName = newFilename;
+                    fileInfo.FilePath = newFilePath;
+                    FileInfos = fileInfos;
+                }
+                
+                return Ok(new { message = "File renamed successfully", newFilename });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while renaming the file: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
         /// Deletes a specific file from the server
         /// </summary>
         /// <param name="filename">The name of the file to delete</param>

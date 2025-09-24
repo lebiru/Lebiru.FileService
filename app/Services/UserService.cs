@@ -73,6 +73,13 @@ namespace Lebiru.FileService.Services
         /// </summary>
         /// <param name="filePath">The path of the file to remove</param>
         void RemoveFileFromUser(string filePath);
+        
+        /// <summary>
+        /// Updates a file path in all user records when a file is renamed
+        /// </summary>
+        /// <param name="oldFilePath">The old file path</param>
+        /// <param name="newFilePath">The new file path</param>
+        void UpdateFilePath(string oldFilePath, string newFilePath);
     }
 
     /// <summary>
@@ -228,6 +235,27 @@ namespace Lebiru.FileService.Services
                 user.OwnedFiles.Remove(filePath);
             }
             Save();
+        }
+        
+        /// <inheritdoc />
+        public void UpdateFilePath(string oldFilePath, string newFilePath)
+        {
+            bool updated = false;
+            
+            foreach (var user in _users)
+            {
+                int index = user.OwnedFiles.IndexOf(oldFilePath);
+                if (index >= 0)
+                {
+                    user.OwnedFiles[index] = newFilePath;
+                    updated = true;
+                }
+            }
+            
+            if (updated)
+            {
+                Save();
+            }
         }
 
         private void Load()

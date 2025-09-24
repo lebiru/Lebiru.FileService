@@ -865,6 +865,57 @@
                 });
             }
         }
+        
+        function refreshCurrentPage() {
+            // Get current page from URL params or default to 1
+            const urlParams = new URLSearchParams(window.location.search);
+            let currentPage = parseInt(urlParams.get('page') || 1);
+            let currentItemsPerPage = parseInt(urlParams.get('itemsPerPage') || 10);
+            let currentSort = urlParams.get('sort') || 'upload_desc';
+            
+            // Fetch updated file list for current page
+            fetch(`/File/List?page=${currentPage}&itemsPerPage=${currentItemsPerPage}&sort=${currentSort}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                document.querySelector('.file-list-container').innerHTML = html;
+                
+                // Also refresh server space info
+                fetch('/File/AvailableSpace', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('used-space').textContent = data.usedSpace;
+                    document.getElementById('total-space').textContent = data.totalSpace;
+                    
+                    // Update progress bar
+                    const progressBar = document.querySelector('.progress-bar');
+                    const percentage = data.usedSpacePercent;
+                    progressBar.style.width = percentage + '%';
+                    progressBar.setAttribute('aria-valuenow', percentage);
+                    
+                    // Update color based on thresholds
+                    if (percentage >= data.criticalThresholdPercent) {
+                        progressBar.classList.remove('bg-warning', 'bg-info');
+                        progressBar.classList.add('bg-danger');
+                    } else if (percentage >= data.warningThresholdPercent) {
+                        progressBar.classList.remove('bg-danger', 'bg-info');
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.remove('bg-danger', 'bg-warning');
+                        progressBar.classList.add('bg-info');
+                    }
+                });
+            });
+        }
 
     </script>
 
