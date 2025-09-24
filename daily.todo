@@ -28,11 +28,11 @@ COMPLETE
 ✔️ FileTable UI upgrades: fix columns, pagination (first, last), Display 10,20,50
 ✔️ Print
 ✔️ Rename
+✔️ Icon for file types
+✔️ Copy
 
 TODO
 
-✔️ Copy
-☐ Icon for file types
 ☐ Checksum sha 256
 
 ☐ MIME check

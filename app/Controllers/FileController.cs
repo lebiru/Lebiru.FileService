@@ -7,6 +7,7 @@ using Lebiru.FileService.Models;
 using FileInfo = Lebiru.FileService.Models.FileInfo;
 using Lebiru.FileService.Services;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Cryptography;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -18,8 +19,8 @@ namespace Lebiru.FileService.Controllers
     [Authorize]
     public class FileController : Controller
     {
-    private const string UploadsFolder = "uploads";
-    private const string DataFolder = "app-data";
+        private const string UploadsFolder = "uploads";
+        private const string DataFolder = "app-data";
         private readonly CleanupJob _cleanupJob;
         private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly string _fileInfoPath;
@@ -28,7 +29,7 @@ namespace Lebiru.FileService.Controllers
         private readonly IUserService _userService;
 
         private static readonly object _fileLock = new object();
-        
+
         private List<Models.FileInfo> FileInfos
         {
             get
@@ -102,7 +103,7 @@ namespace Lebiru.FileService.Controllers
             fileInfos = fileInfos
                 .OrderByDescending(f => f.UploadTime)
                 .ToList();
-            
+
             // Create pagination model with default values
             var pagination = new PaginationModel
             {
@@ -164,11 +165,11 @@ namespace Lebiru.FileService.Controllers
                 "expiry_desc" => fileInfos.OrderByDescending(f => f.ExpiryTime ?? DateTime.MaxValue).ToList(),
                 _ => fileInfos.OrderByDescending(f => f.UploadTime).ToList(), // upload_desc default
             };
-            
+
             // Ensure valid pagination parameters
             page = Math.Max(1, page);
-            itemsPerPage = PaginationModel.PageSizeOptions.Contains(itemsPerPage) 
-                ? itemsPerPage 
+            itemsPerPage = PaginationModel.PageSizeOptions.Contains(itemsPerPage)
+                ? itemsPerPage
                 : PaginationModel.PageSizeOptions[1]; // Default to 10
 
             // Create pagination model
@@ -254,7 +255,7 @@ namespace Lebiru.FileService.Controllers
                 {
                     await file.CopyToAsync(stream);
                 }
-                
+
                 // Flush to ensure the file is written to disk
                 System.IO.File.SetLastWriteTimeUtc(filePath, DateTime.UtcNow);
 
@@ -301,7 +302,7 @@ namespace Lebiru.FileService.Controllers
 
             // Increment upload counter
             _metricsService.IncrementUploadCount();
-            
+
             return Ok("File uploaded successfully.");
         }
 
@@ -338,7 +339,7 @@ namespace Lebiru.FileService.Controllers
             var mimeType = GetMimeType(filePath);
             return PhysicalFile(filePath, mimeType, enableRangeProcessing: true);
         }
-        
+
         /// <summary>
         /// Views a file in the browser in print mode
         /// </summary>
@@ -353,15 +354,15 @@ namespace Lebiru.FileService.Controllers
                 return NotFound("File not found.");
 
             var mimeType = GetMimeType(filePath);
-            
+
             // Add JavaScript to automatically open print dialog
             ViewBag.Filename = filename;
             ViewBag.MimeType = mimeType;
             ViewBag.FilePath = Url.Action("ViewFile", "File", new { filename });
-            
+
             return View("PrintView");
         }
-        
+
         /// <summary>
         /// Makes a copy of the specified file
         /// </summary>
@@ -377,36 +378,36 @@ namespace Lebiru.FileService.Controllers
                 {
                     return BadRequest("Filename cannot be empty.");
                 }
-                
+
                 // Sanitize filename and get paths
                 filename = Path.GetFileName(filename);
                 var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
-                
+
                 // Check if source file exists
                 if (!System.IO.File.Exists(sourcePath))
                 {
                     return NotFound($"File '{filename}' not found.");
                 }
-                
+
                 // Check if user has permission to access the file
                 var username = User.Identity?.Name;
                 if (username == null)
                 {
                     return Unauthorized();
                 }
-                
+
                 var userRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
                 if (userRole != UserRoles.Admin && !_userService.IsFileOwner(username, sourcePath))
                 {
                     return Forbid();
                 }
-                
+
                 // Generate new filename with " Copy" suffix
                 string filenameWithoutExt = Path.GetFileNameWithoutExtension(filename);
                 string extension = Path.GetExtension(filename);
                 string newFilename = $"{filenameWithoutExt} Copy{extension}";
                 string destPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
-                
+
                 // If file with " Copy" suffix exists, add a number
                 int counter = 1;
                 while (System.IO.File.Exists(destPath))
@@ -415,7 +416,7 @@ namespace Lebiru.FileService.Controllers
                     destPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
                     counter++;
                 }
-                
+
                 // Check if copy will exceed configured disk space limit
                 var totalSpaceUsed = GetTotalSpaceUsed(Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder));
                 var sourceFileInfo = new System.IO.FileInfo(sourcePath);
@@ -424,10 +425,10 @@ namespace Lebiru.FileService.Controllers
                 {
                     return BadRequest($"File copy would exceed the maximum allocated space of {_config.MaxDiskSpaceGB} GB.");
                 }
-                
+
                 // Copy the file
                 System.IO.File.Copy(sourcePath, destPath);
-                
+
                 // Update fileInfo.json
                 var fileInfos = FileInfos;
                 var sourceFileDetails = fileInfos.FirstOrDefault(f => f.FileName == filename);
@@ -442,20 +443,20 @@ namespace Lebiru.FileService.Controllers
                         FileSize = sourceFileDetails.FileSize,
                         Owner = User.Identity?.Name
                     };
-                    
+
                     fileInfos.Add(newFileInfo);
                     FileInfos = fileInfos;
                 }
-                
+
                 // Add file ownership
                 if (username != null)
                 {
                     _userService.AddFileToUser(username, destPath);
                 }
-                
+
                 // Increment upload counter (copying is like uploading)
                 _metricsService.IncrementUploadCount();
-                
+
                 return Ok(new { message = $"File copied successfully as '{newFilename}'", newFilename });
             }
             catch (Exception ex)
@@ -471,7 +472,8 @@ namespace Lebiru.FileService.Controllers
                 return 0;
 
             // Get fresh file info and handle any locked files
-            return directoryInfo.GetFiles().Sum(file => {
+            return directoryInfo.GetFiles().Sum(file =>
+            {
                 try
                 {
                     file.Refresh();
@@ -554,7 +556,7 @@ namespace Lebiru.FileService.Controllers
             // Enqueue both cleanup jobs
             _backgroundJobClient.Enqueue(() => _cleanupJob.Execute(null!));
             _backgroundJobClient.Enqueue<ExpiryJob>(job => job.DeleteExpiredFiles(null));
-            
+
             return Ok("Cleanup jobs have been enqueued.");
         }
 
@@ -594,14 +596,14 @@ namespace Lebiru.FileService.Controllers
                 }
 
                 memoryStream.Seek(0, SeekOrigin.Begin);
-                
+
                 // Count each file in the zip as a download
                 var fileList = filenames.Split('|', StringSplitOptions.RemoveEmptyEntries);
                 foreach (var _ in fileList)
                 {
                     _metricsService.IncrementDownloadCount();
                 }
-                
+
                 return File(memoryStream.ToArray(), "application/zip", $"LebiruFiles.zip");
             }
         }
@@ -704,7 +706,7 @@ namespace Lebiru.FileService.Controllers
                 {
                     return BadRequest("New filename cannot be empty.");
                 }
-                
+
                 // Ensure the new filename has the same extension to prevent type changing
                 var oldExtension = Path.GetExtension(oldFilename);
                 var newExtension = Path.GetExtension(newFilename);
@@ -717,41 +719,41 @@ namespace Lebiru.FileService.Controllers
                 {
                     return BadRequest("Changing file extension is not allowed. New filename must have the same extension as the original.");
                 }
-                
+
                 var oldFilePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, oldFilename);
                 var newFilePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
-                
+
                 // Check if source file exists
                 if (!System.IO.File.Exists(oldFilePath))
                 {
                     return NotFound($"File '{oldFilename}' not found.");
                 }
-                
+
                 // Check if target file already exists
                 if (System.IO.File.Exists(newFilePath))
                 {
                     return BadRequest($"File '{newFilename}' already exists. Please choose a different name.");
                 }
-                
+
                 // Check if user has permission to modify the file
                 var username = User.Identity?.Name;
                 if (username == null)
                 {
                     return Unauthorized();
                 }
-                
+
                 var userRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
                 if (userRole != UserRoles.Admin && !_userService.IsFileOwner(username, oldFilePath))
                 {
                     return Forbid();
                 }
-                
+
                 // Rename the physical file
                 System.IO.File.Move(oldFilePath, newFilePath);
-                
+
                 // Update file references in userInfo.json
                 _userService.UpdateFilePath(oldFilePath, newFilePath);
-                
+
                 // Update fileInfo.json
                 var fileInfos = FileInfos;
                 var fileInfo = fileInfos.FirstOrDefault(f => f.FileName == oldFilename);
@@ -761,7 +763,7 @@ namespace Lebiru.FileService.Controllers
                     fileInfo.FilePath = newFilePath;
                     FileInfos = fileInfos;
                 }
-                
+
                 return Ok(new { message = "File renamed successfully", newFilename });
             }
             catch (Exception ex)
@@ -769,7 +771,7 @@ namespace Lebiru.FileService.Controllers
                 return StatusCode(500, $"An error occurred while renaming the file: {ex.Message}");
             }
         }
-        
+
         /// <summary>
         /// Deletes a specific file from the server
         /// </summary>
@@ -826,7 +828,7 @@ namespace Lebiru.FileService.Controllers
             string[] suffixes = { "B", "KB", "MB", "GB", "TB", "PB" };
             int counter = 0;
             decimal number = bytes;
-            
+
             // Convert without rounding until we reach the final unit
             while (number >= 1024)
             {
@@ -839,8 +841,56 @@ namespace Lebiru.FileService.Controllers
             return $"{number.ToString(format)} {suffixes[counter]}";
         }
 
+        /// <summary>
+        /// Calculate SHA-256 checksum for a specified file
+        /// </summary>
+        /// <param name="filename">The name of the file to calculate the checksum for</param>
+        /// <returns>SHA-256 checksum of the file as a string</returns>
+        private string CalculateSha256Checksum(string filename)
+        {
+            try
+            {
+                var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return string.Empty;
+                }
 
+                using (var stream = System.IO.File.OpenRead(filePath))
+                using (var sha256 = SHA256.Create())
+                {
+                    var hash = sha256.ComputeHash(stream);
+                    return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                }
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get the SHA-256 checksum for a file
+        /// </summary>
+        /// <param name="filename">The name of the file</param>
+        /// <returns>JSON object containing the filename and its SHA-256 checksum</returns>
+        [HttpGet("Checksum")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult GetChecksum(string filename)
+        {
+            if (string.IsNullOrEmpty(filename))
+            {
+                return BadRequest("Filename cannot be empty");
+            }
+
+            var checksum = CalculateSha256Checksum(filename);
+            if (string.IsNullOrEmpty(checksum))
+            {
+                return NotFound($"File '{filename}' not found or could not be accessed");
+            }
+
+            return Json(new { filename, checksum });
+        }
     }
-
-
 }
