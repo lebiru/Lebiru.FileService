@@ -11,6 +11,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **File Download**: Users can download files from the server.
 - **File Printing**: 🖨️ Users can easily print files directly from the web interface.
 - **File Rename**: 🔄 Users can rename their uploaded files while preserving file extensions.
+- **File Copy**: 📋 Users can create copies of files with automatic naming (adds "Copy" suffix).
 - **Multi-File Download to Zip**: Users can download multiple files into a zip from the server. (@alfcanres)
 - **File Listing**: Users can view a list of uploaded files along with their upload times.
 - **Image Preview**: 🖼️ Image files are displayed with a preview in the web interface.
@@ -106,6 +107,12 @@ The API documentation is available through Swagger. Once the application is runn
   - File extension is automatically preserved to maintain file type
   - Only file owners and admins can rename files
   - All references to the file are updated automatically (ownership records, file metadata)
+- **Copying Files**:
+  - Use the Make Copy button in the file actions menu to duplicate files
+  - Automatically appends " Copy" to the filename (or " Copy N" if needed for uniqueness)
+  - Creates a new file with same content and attributes as the original
+  - New copy is assigned to the user who created it
+  - File references are automatically updated (ownership records, file metadata)
 - **File Management**:
   - View list of all uploaded files with upload times and expiry status
   - Rename files while preserving file extension and ownership
