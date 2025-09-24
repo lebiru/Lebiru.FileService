@@ -265,3 +265,4 @@ Lebiru.FileService.Tests/coverage-report/
 Lebiru.FileService.Tests/coverage.cobertura.xml
 app/app-data/
 Lebiru.FileService.Tests/coveragereport/
+.vscode/

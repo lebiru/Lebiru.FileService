@@ -17,6 +17,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **Image Preview**: 🖼️ Image files are displayed with a preview in the web interface.
 - **Text File Preview**: 📄 Text files show the first 100 characters as a preview in the web interface.
 - **File Type Icons**: 📂 Files are displayed with appropriate Font Awesome icons based on file type.
+- **Local Time Display**: 🕒 Upload times automatically displayed in user's local timezone with AM/PM format.
 - **File Expiry**: ⏳ Set expiration times for uploaded files (1 minute, 1 hour, 1 day, 1 week, or never).
 - **Background Jobs**: 🔄 Automated cleanup of expired files using Hangfire.
 - **Job Monitoring**: 📊 Hangfire dashboard for monitoring file cleanup and expiry jobs.
