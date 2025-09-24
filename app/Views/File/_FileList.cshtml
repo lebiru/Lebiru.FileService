@@ -72,7 +72,7 @@
     .col-server { width: 120px; }
     .col-owner { width: 120px; }
     .col-preview { width: 110px; }
-    .col-actions { width: 100px; }
+    .col-actions { width: 120px; }
 
     .action-dropdown {
         position: relative;
@@ -328,6 +328,11 @@
                                class="action-item"
                                title="Download this file to your computer">
                                 <i class="fas fa-cloud-download-alt"></i> Download
+                            </a>
+                            <a href="@Url.Action("PrintFile", "File", new { filename = file.FileName })" 
+                               class="action-item" target="_blank"
+                               title="Open the file in print mode">
+                                <i class="fas fa-print"></i> Print
                             </a>
                             @if (canDelete)
                             {
