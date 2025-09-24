@@ -18,7 +18,7 @@
     .file-table td {
         padding: 8px;
         text-overflow: ellipsis;
-        overflow: visible;
+        overflow: hidden;
         white-space: nowrap;
         position: relative;
         border: 1px solid #dddddd;
@@ -65,8 +65,57 @@
 
     /* Column widths */
     .col-select { width: 40px; }
-    .col-size { width: 80px; }
-    .col-filename { width: auto; }
+    .col-size { width: 100px; }
+    .col-filename { 
+        width: auto;
+        position: relative;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    /* Filename hover effects */
+    .col-filename:hover {
+        overflow: hidden;
+        z-index: 5;
+    }
+    
+    .col-filename:hover .filename-content {
+        background-color: inherit;
+        position: relative;
+        width: auto;
+        max-width: none;
+        white-space: nowrap;
+        animation: filename-marquee 8s linear infinite alternate;
+        animation-play-state: running;
+        transition: all 0.2s ease;
+    }
+    
+    body.dark-mode .col-filename:hover .filename-content {
+        box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        background-color: #2a2a2a;
+    }
+    
+    .filename-content {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+    
+    @@keyframes filename-marquee {
+        0%, 15% {
+            transform: translateX(0);
+        }
+        85%, 100% {
+            transform: translateX(calc(max(-100% + 280px, -150px)));
+        }
+    }
+    
     .col-time { width: 160px; }
     .col-expiry { width: 120px; }
     .col-server { width: 120px; }
@@ -258,7 +307,9 @@
                     <input type="checkbox" id="@("chk-file-" + itemIndex.ToString())"
                         onchange="showDownloadFilesButton()">
                 </td>
-                <td class="col-filename" id="@("selected-file-" + itemIndex.ToString())">@file.FileName</td>
+                <td class="col-filename" id="@("selected-file-" + itemIndex.ToString())">
+                    <div class="filename-content">@file.FileName</div>
+                </td>
                 <td class="col-size">@{
                     var size = file.FileSize;
                     string[] units = { "B", "KB", "MB", "GB", "TB" };
@@ -271,7 +322,7 @@
                     @($"{size:F2} {units[unitIndex]}")
                 }</td>
                 <td class="col-time" data-upload-time="@file.UploadTime.ToString("O")">
-                    <span title="@file.UploadTime.ToString("O")">@file.UploadTime.ToString("MMM dd, yyyy, HH:mm")</span>
+                    <span>@file.UploadTime.ToString("MMM dd, yyyy, HH:mm")</span>
                 </td>
                 <td class="col-expiry">
                     @if (file.ExpiryTime.HasValue)
@@ -334,6 +385,11 @@
                                title="Open the file in print mode">
                                 <i class="fas fa-print"></i> Print
                             </a>
+                            <button onclick="copyFile('@file.FileName'); return false;" 
+                                    class="action-item"
+                                    title="Create a copy of this file">
+                                <i class="fas fa-copy"></i> Make Copy
+                            </button>
                             <button onclick="showRenameDialog('@file.FileName'); return false;" 
                                     class="action-item"
                                     title="Rename this file">
@@ -373,14 +429,17 @@
         document.querySelectorAll('[data-upload-time]').forEach(element => {
             const utcTime = new Date(element.dataset.uploadTime);
             
-            // Format the date as "Sep 21, 2025, 21:15"
-            const month = utcTime.toLocaleString('en-US', { month: 'short' });
-            const day = utcTime.getDate();
-            const year = utcTime.getFullYear();
-            const hours = String(utcTime.getHours()).padStart(2, '0');
-            const minutes = String(utcTime.getMinutes()).padStart(2, '0');
+            // Format using toLocaleString to respect user's timezone and locale
+            const options = { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false
+            };
             
-            const timeStr = `${month} ${day}, ${year}, ${hours}:${minutes}`;
+            const timeStr = utcTime.toLocaleString(navigator.language || 'en-US', options);
             element.querySelector('span').textContent = timeStr;
         });
     }
@@ -604,6 +663,85 @@
             // Reset button state
             renameBtn.disabled = false;
             renameBtn.textContent = originalBtnText;
+        });
+    }
+    
+    function deleteFile(filename) {
+        // Confirm deletion
+        if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+            return;
+        }
+        
+        // Create form data for POST request
+        const formData = new FormData();
+        formData.append('filename', filename);
+        
+        // Show loading notification
+        showNotification('Deleting file...', 'info');
+        
+        // Send delete request
+        fetch('/File/DeleteFile', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(text || `Error: ${response.status}`);
+                });
+            }
+            return response.text();
+        })
+        .then(() => {
+            // Show success notification
+            showNotification('File deleted successfully', 'success');
+            
+            // Refresh the entire page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        })
+        .catch(error => {
+            console.error('Error deleting file:', error);
+            showNotification(error.message || 'An error occurred while deleting the file.', 'error');
+        });
+    }
+    
+    function copyFile(filename) {
+        // Create form data for POST request
+        const formData = new FormData();
+        formData.append('filename', filename);
+        
+        // Show loading notification
+        showNotification('Creating file copy...', 'info');
+        
+        // Send copy request
+        fetch('/File/CopyFile', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(text || `Error: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Show success notification
+            showNotification(data.message, 'success');
+            
+            // Refresh the entire page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        })
+        .catch(error => {
+            console.error('Error copying file:', error);
+            showNotification(error.message || 'An error occurred while copying the file.', 'error');
         });
     }
     

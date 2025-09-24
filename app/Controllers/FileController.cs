@@ -361,6 +361,108 @@ namespace Lebiru.FileService.Controllers
             
             return View("PrintView");
         }
+        
+        /// <summary>
+        /// Makes a copy of the specified file
+        /// </summary>
+        /// <param name="filename">The name of the file to copy</param>
+        /// <returns>Success or error message</returns>
+        [HttpPost("CopyFile")]
+        public IActionResult CopyFile([FromForm] string filename)
+        {
+            try
+            {
+                // Validate input
+                if (string.IsNullOrWhiteSpace(filename))
+                {
+                    return BadRequest("Filename cannot be empty.");
+                }
+                
+                // Sanitize filename and get paths
+                filename = Path.GetFileName(filename);
+                var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+                
+                // Check if source file exists
+                if (!System.IO.File.Exists(sourcePath))
+                {
+                    return NotFound($"File '{filename}' not found.");
+                }
+                
+                // Check if user has permission to access the file
+                var username = User.Identity?.Name;
+                if (username == null)
+                {
+                    return Unauthorized();
+                }
+                
+                var userRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (userRole != UserRoles.Admin && !_userService.IsFileOwner(username, sourcePath))
+                {
+                    return Forbid();
+                }
+                
+                // Generate new filename with " Copy" suffix
+                string filenameWithoutExt = Path.GetFileNameWithoutExtension(filename);
+                string extension = Path.GetExtension(filename);
+                string newFilename = $"{filenameWithoutExt} Copy{extension}";
+                string destPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
+                
+                // If file with " Copy" suffix exists, add a number
+                int counter = 1;
+                while (System.IO.File.Exists(destPath))
+                {
+                    newFilename = $"{filenameWithoutExt} Copy {counter}{extension}";
+                    destPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
+                    counter++;
+                }
+                
+                // Check if copy will exceed configured disk space limit
+                var totalSpaceUsed = GetTotalSpaceUsed(Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder));
+                var sourceFileInfo = new System.IO.FileInfo(sourcePath);
+                var maxSpace = _config.MaxDiskSpaceGB * 1024L * 1024L * 1024L;
+                if (totalSpaceUsed + sourceFileInfo.Length > maxSpace)
+                {
+                    return BadRequest($"File copy would exceed the maximum allocated space of {_config.MaxDiskSpaceGB} GB.");
+                }
+                
+                // Copy the file
+                System.IO.File.Copy(sourcePath, destPath);
+                
+                // Update fileInfo.json
+                var fileInfos = FileInfos;
+                var sourceFileDetails = fileInfos.FirstOrDefault(f => f.FileName == filename);
+                if (sourceFileDetails != null)
+                {
+                    var newFileInfo = new Models.FileInfo
+                    {
+                        FileName = newFilename,
+                        FilePath = destPath,
+                        UploadTime = DateTime.UtcNow,
+                        ExpiryTime = sourceFileDetails.ExpiryTime, // Keep the same expiry setting
+                        FileSize = sourceFileDetails.FileSize,
+                        Owner = User.Identity?.Name
+                    };
+                    
+                    fileInfos.Add(newFileInfo);
+                    FileInfos = fileInfos;
+                }
+                
+                // Add file ownership
+                if (username != null)
+                {
+                    _userService.AddFileToUser(username, destPath);
+                }
+                
+                // Increment upload counter (copying is like uploading)
+                _metricsService.IncrementUploadCount();
+                
+                return Ok(new { message = $"File copied successfully as '{newFilename}'", newFilename });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while copying the file: {ex.Message}");
+            }
+        }
 
         private long GetTotalSpaceUsed(string directoryPath)
         {
