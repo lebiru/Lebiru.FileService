@@ -197,7 +197,13 @@
         }
     }
     
-    .col-time { width: 160px; }
+    .col-time { 
+        width: 200px; /* Increased width to accommodate timezone */
+    }
+    .col-time .text-muted {
+        font-size: 80%;
+        opacity: 0.7;
+    }
     .col-expiry { width: 120px; }
     .col-server { width: 120px; }
     .col-owner { width: 120px; }
@@ -406,7 +412,8 @@
                     @($"{size:F2} {units[unitIndex]}")
                 }</td>
                 <td class="col-time" data-upload-time="@file.UploadTime.ToString("O")">
-                    <span>@file.UploadTime.ToString("MMM dd, yyyy, HH:mm")</span>
+                    <span class="utc-time">@file.UploadTime.ToString("MMM dd, yyyy, HH:mm")</span>
+                    <span class="local-time" style="display: none;"></span>
                 </td>
                 <td class="col-expiry">
                     @if (file.ExpiryTime.HasValue)
@@ -508,27 +515,97 @@
 </div>
 
 <script>
-    // Format upload times to local timezone
-    function formatUploadTimes() {
-        document.querySelectorAll('[data-upload-time]').forEach(element => {
-            const utcTime = new Date(element.dataset.uploadTime);
-            
-            // Format using toLocaleString to respect user's timezone and locale
-            const options = { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: false
-            };
-            
-            const timeStr = utcTime.toLocaleString(navigator.language || 'en-US', options);
-            element.querySelector('span').textContent = timeStr;
-        });
+    // Dynamically load scripts without document.write
+    function loadScript(url, callback) {
+        console.log(`Loading script: ${url}`);
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = url;
+        script.onload = () => {
+            console.log(`Script loaded successfully: ${url}`);
+            if (callback) callback();
+        };
+        script.onerror = (err) => {
+            console.error(`Error loading script ${url}:`, err);
+        };
+        document.head.appendChild(script);
     }
 
-    // Close all menus when clicking outside
+    // Only initialize date formatting once all necessary scripts are loaded
+    function initializeDateFormatting() {
+        console.log("Initializing date formatting...");
+        
+        // Check for moment.js
+        if (typeof moment === 'undefined') {
+            console.log("moment.js not found, loading it now");
+            // Load moment.js first
+            loadScript('https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js', function() {
+                // Then load moment-timezone
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js', function() {
+                    console.log("Both moment.js scripts loaded, formatting dates");
+                    // Format dates and ensure this runs even if other scripts interfere
+                    setTimeout(formatUploadTimes, 100);
+                });
+            });
+        } else {
+            console.log("moment.js already available");
+            // Moment.js already available, format immediately
+            setTimeout(formatUploadTimes, 100);
+        }
+    }
+
+    // Format upload times to local timezone
+    function formatUploadTimes() {
+        console.log("Formatting upload times...");
+        document.querySelectorAll('[data-upload-time]').forEach(element => {
+            const utcTime = element.dataset.uploadTime;
+            const utcSpan = element.querySelector('.utc-time');
+            const localSpan = element.querySelector('.local-time');
+            
+            try {
+                // Try using moment.js if available
+                if (typeof moment !== 'undefined') {
+                    console.log("Using moment.js for formatting");
+                    const localTime = moment(utcTime).local();
+                    const timeStr = localTime.format('MMM DD, YYYY, h:mm A');
+                    const timezone = moment.tz.guess();
+                    const timezoneAbbr = moment.tz(timezone).zoneAbbr();
+                    
+                    // Display date/time in AM/PM format with timezone
+                    localSpan.innerHTML = `${timeStr} <small class="text-muted">${timezoneAbbr}</small>`;
+                    
+                    // Hide UTC time and show local time
+                    utcSpan.style.display = 'none';
+                    localSpan.style.display = '';
+                } else {
+                    console.log("Falling back to native Date methods");
+                    // Fallback to native JS Date
+                    const dateObj = new Date(utcTime);
+                    const options = { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: '2-digit',
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true
+                    };
+                    const timeStr = dateObj.toLocaleString(navigator.language || 'en-US', options);
+                    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    
+                    localSpan.innerHTML = `${timeStr} <small class="text-muted">${timezone}</small>`;
+                    
+                    // Hide UTC time and show local time
+                    utcSpan.style.display = 'none';
+                    localSpan.style.display = '';
+                }
+            } catch (error) {
+                console.error("Error formatting date:", error);
+                // Keep showing the UTC time as fallback
+                utcSpan.style.display = '';
+                localSpan.style.display = 'none';
+            }
+        });
+    }    // Close all menus when clicking outside
     document.addEventListener('click', function(event) {
         if (!event.target.closest('.action-dropdown')) {
             document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
@@ -585,10 +662,25 @@
         }
     });
 
-    // Initialize
-    formatUploadTimes();
-    // Update times periodically
-    setInterval(formatUploadTimes, 60000); // Update every minute
+    // Initialize with our new loader function
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM fully loaded, initializing date formatting");
+        initializeDateFormatting();
+        
+        // Re-apply formatting after a short delay to handle any race conditions
+        setTimeout(formatUploadTimes, 1500);
+        
+        // Update times periodically
+        setInterval(formatUploadTimes, 60000); // Update every minute
+    });
+    
+    // Also try to initialize immediately in case the DOMContentLoaded already fired
+    if (document.readyState === 'loading') {
+        console.log("Document still loading, waiting for DOMContentLoaded");
+    } else {
+        console.log("Document already loaded, initializing immediately");
+        initializeDateFormatting();
+    }
     
     // Rename file functionality
     function showRenameDialog(filename) {

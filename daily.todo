@@ -19,6 +19,7 @@ COMPLETE
    - light/dark theme (complete)
    - env variables listing (complete)
 ✔️ Add Font Awesome icons for file types in file list
+✔️ Convert upload times to local timezone with AM/PM format
 ✔️ default admin user security and authentication on Web UI
 ✔️ Default users: admin
 ✔️ set-expiration before document is deleted
