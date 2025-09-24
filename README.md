@@ -10,6 +10,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **File Upload**: Users can upload files to the server.
 - **File Download**: Users can download files from the server.
 - **File Printing**: 🖨️ Users can easily print files directly from the web interface.
+- **File Rename**: 🔄 Users can rename their uploaded files while preserving file extensions.
 - **Multi-File Download to Zip**: Users can download multiple files into a zip from the server. (@alfcanres)
 - **File Listing**: Users can view a list of uploaded files along with their upload times.
 - **Image Preview**: 🖼️ Image files are displayed with a preview in the web interface.
@@ -100,8 +101,14 @@ The API documentation is available through Swagger. Once the application is runn
   - Use the Print button in the file actions menu to open the browser's print dialog
   - Optimized print layout for different file types (images, PDFs, text)
   - Print directly from the application without downloading files first
+- **Renaming Files**:
+  - Click the Rename button in the file actions menu to rename files
+  - File extension is automatically preserved to maintain file type
+  - Only file owners and admins can rename files
+  - All references to the file are updated automatically (ownership records, file metadata)
 - **File Management**:
   - View list of all uploaded files with upload times and expiry status
+  - Rename files while preserving file extension and ownership
   - See remaining time before file expiry
   - Automatic cleanup of expired files
   - Monitor file operations through Hangfire dashboard at `/hangfire`
