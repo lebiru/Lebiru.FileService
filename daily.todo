@@ -27,7 +27,17 @@ COMPLETE
 
 TODO
 
-☐ k6 tests for testing
+☐ Print
+☐ Rename
+☐ Copy
+☐ Icon for file types
+☐ Checksum sha 256
+
+☐ MIME check
+☐ Drag and Drop zone
+☐ Dedicated upload page
+
+☐ Playwright tests
 ☐ Object lock to prevent deletion or modification 
 ☐ White label for your company needs, replace Lebiru.FileService with company logo 200x200 (jpg or png)
 ☐ Encryption 
