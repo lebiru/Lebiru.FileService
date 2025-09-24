@@ -1,11 +1,92 @@
 @using Lebiru.FileService.Models
 @model List<FileInfo>
 
+@functions {
+    public string GetFileIcon(string extension)
+    {
+        if (string.IsNullOrEmpty(extension)) return "fas fa-file"; // Default icon
+        
+        switch(extension.ToLower())
+        {
+            // Images
+            case ".jpg":
+            case ".jpeg":
+            case ".png":
+            case ".gif":
+            case ".bmp":
+            case ".svg":
+            case ".webp":
+                return "far fa-file-image";
+                
+            // Documents
+            case ".pdf":
+                return "far fa-file-pdf";
+            case ".doc":
+            case ".docx":
+                return "far fa-file-word";
+            case ".xls":
+            case ".xlsx":
+            case ".csv":
+                return "far fa-file-excel";
+            case ".ppt":
+            case ".pptx":
+                return "far fa-file-powerpoint";
+            case ".txt":
+                return "far fa-file-alt";
+                
+            // Archives
+            case ".zip":
+            case ".rar":
+            case ".7z":
+            case ".tar":
+            case ".gz":
+                return "far fa-file-archive";
+                
+            // Code
+            case ".html":
+            case ".htm":
+                return "far fa-file-code";
+            case ".js":
+                return "fab fa-js";
+            case ".css":
+                return "fab fa-css3";
+            case ".cs":
+            case ".vb":
+            case ".java":
+            case ".py":
+            case ".cpp":
+            case ".c":
+            case ".php":
+                return "far fa-file-code";
+                
+            // Audio/Video
+            case ".mp3":
+            case ".wav":
+            case ".ogg":
+                return "far fa-file-audio";
+            case ".mp4":
+            case ".avi":
+            case ".mov":
+            case ".wmv":
+            case ".mkv":
+                return "far fa-file-video";
+                
+            // Default
+            default:
+                return "fas fa-file";
+        }
+    }
+}
+
 <style>
     .file-list {
         /* Let the list grow with content; no inner scrollbar */
         border: 1px solid #dddddd;
         border-radius: 4px;
+    }
+    
+    .filename-content i {
+        margin-right: 8px;
     }
 
     .file-table {
@@ -308,7 +389,10 @@
                         onchange="showDownloadFilesButton()">
                 </td>
                 <td class="col-filename" id="@("selected-file-" + itemIndex.ToString())">
-                    <div class="filename-content">@file.FileName</div>
+                    <div class="filename-content">
+                        <i class="@GetFileIcon(extension)" aria-hidden="true"></i>
+                        @file.FileName
+                    </div>
                 </td>
                 <td class="col-size">@{
                     var size = file.FileSize;
