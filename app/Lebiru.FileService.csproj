@@ -45,13 +45,27 @@
     </None>
   </ItemGroup>
 
-  <Target Name="GetGitHash" BeforeTargets="GenerateVersionJson">
-    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true">
+  <!-- Set default value for SkipGitVersion -->
+  <PropertyGroup>
+    <SkipGitVersion Condition="'$(SkipGitVersion)' == ''">false</SkipGitVersion>
+  </PropertyGroup>
+
+  <Target Name="GetGitHash" BeforeTargets="GenerateVersionJson" Condition="'$(SkipGitVersion)' != 'true'">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitHash" />
+      <Output TaskParameter="ExitCode" PropertyName="GitExitCode" />
     </Exec>
+    <!-- Set a default value if Git command fails -->
+    <PropertyGroup>
+      <GitHash Condition="'$(GitExitCode)' != '0'">unknown</GitHash>
+    </PropertyGroup>
   </Target>
 
-  <Target Name="GenerateVersionJson" AfterTargets="AfterBuild" DependsOnTargets="GetGitHash">
+  <Target Name="GenerateVersionJson" AfterTargets="AfterBuild">
+    <!-- If SkipGitVersion is true or GetGitHash failed, use 'unknown' for GitCommit -->
+    <PropertyGroup>
+      <GitHash Condition="'$(SkipGitVersion)' == 'true'">unknown</GitHash>
+    </PropertyGroup>
     <WriteLinesToFile File="appsettings.version.json" Lines="{&quot;Version&quot;:&quot;$(Version)&quot;, &quot;GitCommit&quot;:&quot;$(GitHash)&quot;}" Overwrite="true" />
   </Target>
 

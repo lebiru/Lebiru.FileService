@@ -36,7 +36,6 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **C#**: Programming language used in conjunction with ASP.NET Core.
 - **HTML/CSS/JavaScript**: Frontend technologies for building the web interface.
 - **Swagger**: API documentation tool used to document the RESTful API endpoints.
-- **OpenShift**: Platform used for horizontal scaling and deployment of the application.
 - **OpenTelemetry**: Unified data telemetry for microservices
 - **Jaeger**: Open source, distributed tracing platform
 - **Hangfire**: Background job processing for scheduled tasks
@@ -139,7 +138,22 @@ The API documentation is available through Swagger. Once the application is runn
 
 ## Deployment
 
-The application can be deployed to OpenShift for horizontal scaling and high availability. Configure your OpenShift environment and deploy the application using the provided deployment configurations.
+### Docker Deployment
+
+The application can be run as a Docker container using the following command:
+
+```bash
+docker run -d --name fs -p 3000:8080 lebiru/fileservice
+```
+
+This command will:
+- Pull the `lebiru/fileservice` image from Docker Hub if it's not already available locally
+- Run the container in detached mode (`-d`)
+- Name the container `fs` (`--name fs`)
+- Map port 3000 on the host to port 8080 in the container (`-p 3000:8080`)
+
+After running this command, you can access the application at `http://localhost:3000` in your web browser.
+
 
 ## Contributing
 
@@ -148,4 +162,3 @@ Contributions are welcome! If you have any ideas, improvements, or bug fixes, fe
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
