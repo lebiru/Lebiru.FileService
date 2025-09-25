@@ -378,6 +378,10 @@
             min-width: 220px;
         }
 
+        .sort-select-label{
+            margin-top: 10px;
+        }
+
         body.dark-mode .sort-select {
             background-color: #2d2d2d;
             border-color: rgba(255, 255, 255, 0.2);
@@ -537,7 +541,7 @@
 
     <!-- Sort controls (top-right, above the table) -->
     <div class="file-list-controls">
-        <label for="sortSelect">Sort:</label>
+        <label class="sort-select-label" for="sortSelect">Sort:</label>
         <select id="sortSelect" class="sort-select">
             <option value="upload_desc">Upload Date (Newest First)</option>
             <option value="upload_asc">Upload Date (Oldest First)</option>
