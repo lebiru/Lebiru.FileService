@@ -154,6 +154,84 @@
         .preview-cell {
             cursor: pointer;
         }
+        
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .notification-content {
+            display: flex;
+            align-items: center;
+        }
+        
+        .notification-content i {
+            margin-right: 10px;
+        }
+        
+        .notification-success {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        
+        .notification-info {
+            background-color: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            color: #0c5460;
+        }
+        
+        .notification-warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        
+        .notification-error {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        
+        body.dark-mode .notification {
+            background-color: #343a40;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        body.dark-mode .notification-success {
+            background-color: #1e4a30;
+            color: #d4edda;
+        }
+        
+        body.dark-mode .notification-info {
+            background-color: #1a4957;
+            color: #d1ecf1;
+        }
+        
+        body.dark-mode .notification-warning {
+            background-color: #533f03;
+            color: #fff3cd;
+        }
+        
+        body.dark-mode .notification-error {
+            background-color: #501217;
+            color: #f8d7da;
+        }
 
         .primary-bar-container {
             display: flex;
@@ -518,7 +596,7 @@
             @if (User.IsInRole(UserRoles.Admin))
             {
                 <button type="button" id="delete-all-files-button" class="button"
-                    style="background-color: red; color: white;" onclick="confirmCleanup()">Delete All Files</button>
+                    style="background-color: red; color: white;">Delete All Files</button>
             }
         </div>
     </div>
@@ -554,21 +632,58 @@
     }
 
     <script>
+        console.log("Document still loading, waiting for DOMContentLoaded");
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM fully loaded, initializing date formatting");
+            
+            // Add event listener for the delete all files button
+            const deleteAllFilesButton = document.getElementById('delete-all-files-button');
+            if (deleteAllFilesButton) {
+                deleteAllFilesButton.addEventListener('click', function() {
+                    confirmCleanup();
+                });
+            }
+        });
 
-        var currentPage = 1;
-        var itemsPerPage = 5;
-        var currentSort = (document.getElementById('fileList')?.dataset.currentSort) || 'upload_desc';
-        var totalPages = 1;
-        var totalItems = 0;
+        // Initialize with values from server-side (set from session)
+        var currentPage = @(((PaginationModel)ViewBag.Pagination).CurrentPage);
+        var itemsPerPage = @(((PaginationModel)ViewBag.Pagination).PageSize);
+        var totalItems = @(((PaginationModel)ViewBag.Pagination).TotalItems);
+        var totalPages = @(((PaginationModel)ViewBag.Pagination).TotalPages);
+        var currentSort = (document.getElementById('fileList')?.dataset.currentSort) || '@ViewBag.Sort';
 
         function loadPage(page) {
             const sort = currentSort;
             fetch('/File/List?page=' + page + '&itemsPerPage=' + itemsPerPage + '&sort=' + encodeURIComponent(sort))
                 .then(response => response.text())
                 .then(html => {
-                    document.getElementById('fileList').innerHTML = html;
+                    const fileList = document.getElementById('fileList');
+                    if (fileList) {
+                        fileList.innerHTML = html;
+                    }
                     currentPage = page;
                     updatePaginationDisplay();
+                    
+                    // Update browser history without page reload so back/forward work
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', page);
+                    url.searchParams.set('itemsPerPage', itemsPerPage);
+                    url.searchParams.set('sort', sort);
+                    window.history.replaceState({ page, itemsPerPage, sort }, '', url);
+                    
+                    // Make an additional call to ensure session is updated with current page
+                    fetch('/File/UpdateSession', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ page: page, itemsPerPage: itemsPerPage })
+                    })
+                    .then(response => response.json())
+                    .then(data => console.log('Session updated:', data))
+                    .catch(err => console.error('Error updating session:', err));
                 })
                 .catch(error => console.error('Error loading page:', error));
         }
@@ -625,18 +740,37 @@
         }
 
         function updatePaginationDisplay() {
-            document.querySelectorAll('.page-first, .page-prev').forEach(btn => 
-                btn.disabled = currentPage === 1
-            );
-            document.querySelectorAll('.page-next, .page-last').forEach(btn => 
-                btn.disabled = currentPage === totalPages
-            );
-            document.getElementById('itemsPerPage').value = itemsPerPage;
-            document.getElementById('currentPage').textContent = currentPage;
-            document.getElementById('totalPages').textContent = totalPages;
-
-            // Update the "Showing X-Y of Z items" text
+            // First check if pagination elements exist
+            const prevButtons = document.querySelectorAll('.page-first, .page-prev');
+            const nextButtons = document.querySelectorAll('.page-next, .page-last');
+            const itemsPerPageSelect = document.getElementById('itemsPerPage');
+            const currentPageSpan = document.getElementById('currentPage');
+            const totalPagesSpan = document.getElementById('totalPages');
             const itemsInfoEl = document.querySelector('.items-info');
+            
+            // Update navigation button states if they exist
+            if (prevButtons.length > 0) {
+                prevButtons.forEach(btn => btn.disabled = currentPage === 1);
+            }
+            
+            if (nextButtons.length > 0) {
+                nextButtons.forEach(btn => btn.disabled = currentPage === totalPages);
+            }
+            
+            // Update select and spans if they exist
+            if (itemsPerPageSelect) {
+                itemsPerPageSelect.value = itemsPerPage;
+            }
+            
+            if (currentPageSpan) {
+                currentPageSpan.textContent = currentPage;
+            }
+            
+            if (totalPagesSpan) {
+                totalPagesSpan.textContent = totalPages;
+            }
+
+            // Update the "Showing X-Y of Z items" text if it exists
             if (itemsInfoEl) {
                 if (totalItems === 0) {
                     itemsInfoEl.textContent = 'Showing 0-0 of 0 items';
@@ -654,55 +788,130 @@
                 .then(total => {
                     totalItems = parseInt(total, 10) || 0;
                     totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                    updatePaginationDisplay();
+                    
+                    // Only update pagination display if we're not in the middle of a page refresh
+                    // This helps prevent errors when elements don't exist yet
+                    if (document.readyState === 'complete') {
+                        updatePaginationDisplay();
+                    }
                 })
                 .catch(error => console.error('Error calculating total pages:', error));
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            calculateTotalPages();
-            loadPage(1);
-            showDownloadFilesButton(); // on init determine if should show download files button
+            console.log('DOMContentLoaded event fired, initializing pagination');
+            
+            try {
+                // Default to server-provided values (from Razor variables)
+                // These are already set at the top of the script
+                
+                // Check URL parameters and override if present
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                if (urlParams.has('page')) {
+                    const urlPage = parseInt(urlParams.get('page'), 10);
+                    if (!isNaN(urlPage) && urlPage > 0) {
+                        currentPage = urlPage;
+                        console.log('Using page from URL:', currentPage);
+                    }
+                }
+                
+                if (urlParams.has('itemsPerPage')) {
+                    const urlItemsPerPage = parseInt(urlParams.get('itemsPerPage'), 10);
+                    if (!isNaN(urlItemsPerPage) && urlItemsPerPage > 0) {
+                        itemsPerPage = urlItemsPerPage;
+                        console.log('Using items per page from URL:', itemsPerPage);
+                    }
+                }
+                
+                if (urlParams.has('sort')) {
+                    currentSort = urlParams.get('sort');
+                    console.log('Using sort from URL:', currentSort);
+                    
+                    // Update sort dropdown if it exists
+                    const sortSelect = document.getElementById('sortSelect');
+                    if (sortSelect) sortSelect.value = currentSort;
+                }
+                
+                // Calculate total pages which will also update the pagination display
+                calculateTotalPages();
+                
+                // Load the current page (whether from URL or session)
+                console.log('Loading page:', currentPage);
+                loadPage(currentPage);
+                
+                // Initialize the download button state
+                showDownloadFilesButton();
+                
+                // Ensure session is updated with current values
+                fetch('/File/UpdateSession', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ page: currentPage, itemsPerPage: itemsPerPage })
+                })
+                .then(response => response.json())
+                .then(data => console.log('Session initialized on page load:', data))
+                .catch(err => console.error('Error updating session on page load:', err));
+            } catch (error) {
+                console.error('Error in pagination initialization:', error);
+            }
         });
 
         // Upload function removed - now using dedicated Upload page
 
-        // Get the input element and add an event listener for input events
-        document.getElementById("searchInput").addEventListener("input", function () {
-            // Get the value of the search input
-            var searchValue = this.value.trim().toLowerCase();
-
-            // Get all file rows in the table
-            var fileRows = document.getElementsByClassName("fileRow");
-
-            // Loop through all file rows and show/hide them based on search input
-            for (var i = 0; i < fileRows.length; i++) {
-                var fileName = fileRows[i].getElementsByTagName("td")[1].innerText.toLowerCase();
-
-                // Check if the file name contains the search input
-                if (fileName.includes(searchValue)) {
-                    fileRows[i].style.display = "";
-                } else {
-                    fileRows[i].style.display = "none";
-                }
+        // Add search functionality when the document is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the input element and add an event listener for input events
+            const searchInput = document.getElementById("searchInput");
+            if (searchInput) {
+                searchInput.addEventListener("input", function () {
+                    // Get the value of the search input
+                    var searchValue = this.value.trim().toLowerCase();
+    
+                    // Get all file rows in the table
+                    var fileRows = document.getElementsByClassName("fileRow");
+    
+                    // Loop through all file rows and show/hide them based on search input
+                    for (var i = 0; i < fileRows.length; i++) {
+                        var fileName = fileRows[i].getElementsByTagName("td")[1].innerText.toLowerCase();
+    
+                        // Check if the file name contains the search input
+                        if (fileName.includes(searchValue)) {
+                            fileRows[i].style.display = "";
+                        } else {
+                            fileRows[i].style.display = "none";
+                        }
+                    }
+                });
             }
         });
 
-        // Get all preview cells
-        var previewCells = document.querySelectorAll('.preview-cell');
-
-        // Add click event listener to each preview cell
-        previewCells.forEach(function (cell) {
-            cell.addEventListener('click', function () {
-                // Get the image source from the clicked cell
-                var imageUrl = this.querySelector('.preview-image').src;
-
-                // Set the image source in the zoom container
-                var zoomImage = document.querySelector('.zoom-image');
-                zoomImage.src = imageUrl;
-
-                // Show the zoom container
-                document.querySelector('.zoom-container').style.display = 'block';
+        // Initialize preview cells when document is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all preview cells
+            var previewCells = document.querySelectorAll('.preview-cell');
+    
+            // Add click event listener to each preview cell
+            previewCells.forEach(function (cell) {
+                cell.addEventListener('click', function () {
+                    // Get the image source from the clicked cell
+                    var imageUrl = this.querySelector('.preview-image').src;
+    
+                    // Set the image source in the zoom container
+                    var zoomImage = document.querySelector('.zoom-image');
+                    if (zoomImage) {
+                        zoomImage.src = imageUrl;
+                        
+                        // Show the zoom container
+                        const zoomContainer = document.querySelector('.zoom-container');
+                        if (zoomContainer) {
+                            zoomContainer.style.display = 'block';
+                        }
+                    }
+                });
             });
         });
 
@@ -715,6 +924,11 @@
         function showDownloadFilesButton() {
             var checkboxes = document.querySelectorAll('input[type="checkbox"]');
             var downloadButton = document.getElementById('download-button');
+            
+            if (!downloadButton) {
+                return; // Exit if the button doesn't exist
+            }
+            
             var anyCheckboxChecked = false;
 
             checkboxes.forEach(function (checkbox) {
@@ -724,10 +938,11 @@
                 }
             });
 
-            if (anyCheckboxChecked) {
-                $(downloadButton).prop("disabled", false);
+            // Check if jQuery is available, otherwise use vanilla JS
+            if (typeof $ !== 'undefined') {
+                $(downloadButton).prop("disabled", !anyCheckboxChecked);
             } else {
-                $(downloadButton).prop("disabled", true);
+                downloadButton.disabled = !anyCheckboxChecked;
             }
         }
 
@@ -761,27 +976,127 @@
         }
 
         function confirmCleanup() {
-            if (confirm("Are you sure you want to delete all files? This action cannot be undone.")) {
-                fetch("/File/TriggerCleanup", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
+            // Create or update modal for confirmation
+            let modal = document.getElementById('deleteAllModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'deleteAllModal';
+                modal.className = 'modal fade show';
+                document.body.appendChild(modal);
+            }
+            
+            // Create backdrop first (so it's behind the dialog)
+            let backdrop = document.getElementById('modalBackdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.id = 'modalBackdrop';
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+            }
+            
+            // Then create the modal (so it's in front of backdrop)
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Delete All Files</h5>
+                            <button type="button" class="close" id="close-modal-x">
+                                <span>&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete all files? This action cannot be undone.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" id="cancel-delete-all">
+                                <i class="fas fa-times-circle"></i> No, Cancel
+                            </button>
+                            <button type="button" class="btn btn-danger" id="confirm-delete-all">
+                                <i class="fas fa-trash-alt"></i> Yes, Delete All Files
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners to the modal buttons
+            document.getElementById('close-modal-x').addEventListener('click', closeDeleteAllModal);
+            document.getElementById('cancel-delete-all').addEventListener('click', closeDeleteAllModal);
+            document.getElementById('confirm-delete-all').addEventListener('click', executeDeleteAll);
+            
+            // Show modal
+            document.body.classList.add('modal-open');
+            modal.style.display = 'block';
+        }
+        
+        function closeDeleteAllModal() {
+            const modal = document.getElementById('deleteAllModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            
+            if (modal) {
+                modal.style.display = 'none';
+                modal.remove();
+            }
+            
+            if (backdrop) {
+                backdrop.remove();
+            }
+            
+            document.body.classList.remove('modal-open');
+        }
+        
+        function executeDeleteAll() {
+            // Close modal first
+            closeDeleteAllModal();
+            
+            // Trigger cleanup
+            fetch("/File/TriggerCleanup", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        showNotification("Cleanup job has been enqueued successfully!", "success");
+                        // Wait for the job to complete before reloading
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        showNotification("An error occurred while trying to enqueue the cleanup job.", "error");
                     }
                 })
-                    .then(response => {
-                        if (response.ok) {
-                            alert("Cleanup job has been enqueued successfully!");
-                            // Wait for the job to complete before reloading
-                            setTimeout(() => window.location.reload(), 3000);
-                        } else {
-                            alert("An error occurred while trying to enqueue the cleanup job.");
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error:", error);
-                        alert("An error occurred while trying to enqueue the cleanup job.");
-                    });
+                .catch(error => {
+                    console.error("Error:", error);
+                    showNotification("An error occurred while trying to enqueue the cleanup job.", "error");
+                });
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Create notification element if it doesn't exist
+            let notification = document.getElementById('notification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'notification';
+                notification.className = 'notification';
+                document.body.appendChild(notification);
             }
+            
+            // Set notification content and style
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            // Show notification
+            notification.classList.add('show');
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
         }
 
         function deleteFile(filename) {
@@ -810,14 +1125,23 @@
         }
         
         function refreshCurrentPage() {
-            // Get current page from URL params or default to 1
+            // Use current values that are already initialized from session
+            // Only use URL params if explicitly provided
             const urlParams = new URLSearchParams(window.location.search);
-            let currentPage = parseInt(urlParams.get('page') || 1);
-            let currentItemsPerPage = parseInt(urlParams.get('itemsPerPage') || 10);
-            let currentSort = urlParams.get('sort') || 'upload_desc';
+            
+            // If URL explicitly specifies values, use them
+            if (urlParams.has('page')) {
+                currentPage = parseInt(urlParams.get('page'));
+            }
+            if (urlParams.has('itemsPerPage')) {
+                itemsPerPage = parseInt(urlParams.get('itemsPerPage'));
+            }
+            if (urlParams.has('sort')) {
+                currentSort = urlParams.get('sort');
+            }
             
             // Fetch updated file list for current page
-            fetch(`/File/List?page=${currentPage}&itemsPerPage=${currentItemsPerPage}&sort=${currentSort}`, {
+            fetch(`/File/List?page=${currentPage}&itemsPerPage=${itemsPerPage}&sort=${currentSort}`, {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'

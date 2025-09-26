@@ -171,7 +171,6 @@
                 <button class="tab-button active" onclick="showCategory('all')">All</button>
                 <button class="tab-button" onclick="showCategory('app')">Application</button>
                 <button class="tab-button" onclick="showCategory('aspnet')">ASP.NET Core</button>
-                <button class="tab-button" onclick="showCategory('otel')">OpenTelemetry</button>
                 <button class="tab-button" onclick="showCategory('other')">Other</button>
             </div>
 
@@ -217,10 +216,6 @@
                         {
                             category = "aspnet";
                         }
-                        else if (envVar.Key.StartsWith("OTEL_", StringComparison.OrdinalIgnoreCase))
-                        {
-                            category = "otel";
-                        }
 
                         <tr class="config-row @category-config">
                             <td>
@@ -231,7 +226,6 @@
                                             .Replace("ASPNETCORE_", "")
                                             .Replace("FileService:", "")
                                             .Replace("Application:", "")
-                                            .Replace("OTEL_", "")
                                             .Replace('_', ' ');
                                     }
                                     @displayKey

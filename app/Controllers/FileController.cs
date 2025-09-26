@@ -9,6 +9,22 @@ using Lebiru.FileService.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Cryptography;
 
+/// <summary>
+/// Model class for pagination request data
+/// </summary>
+public class PaginationRequest
+{
+    /// <summary>
+    /// The current page number
+    /// </summary>
+    public int page { get; set; } = 1;
+
+    /// <summary>
+    /// Number of items to display per page
+    /// </summary>
+    public int itemsPerPage { get; set; } = 10;
+}
+
 namespace Lebiru.FileService.Controllers
 {
     /// <summary>
@@ -27,7 +43,7 @@ namespace Lebiru.FileService.Controllers
         private readonly FileServiceConfig _config;
         private readonly IApiMetricsService _metricsService;
         private readonly IUserService _userService;
-        private readonly MimeValidationService _mimeValidationService;
+        private readonly IMimeValidationService _mimeValidationService;
 
         private static readonly object _fileLock = new object();
 
@@ -77,7 +93,7 @@ namespace Lebiru.FileService.Controllers
             IConfiguration configuration,
             IApiMetricsService metricsService,
             IUserService userService,
-            MimeValidationService mimeValidationService)
+            IMimeValidationService mimeValidationService)
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
@@ -108,20 +124,30 @@ namespace Lebiru.FileService.Controllers
                 .OrderByDescending(f => f.UploadTime)
                 .ToList();
 
-            // Create pagination model with default values
+            // Get pagination preferences from session or use defaults
+            var currentPage = HttpContext.Session.GetInt32("CurrentPage") ?? 1;
+            var pageSize = HttpContext.Session.GetInt32("ItemsPerPage") ?? PaginationModel.PageSizeOptions[1]; // Default to 10
+
+            // Create pagination model
             var pagination = new PaginationModel
             {
-                CurrentPage = 1,
-                PageSize = PaginationModel.PageSizeOptions[1], // Default to 10
+                CurrentPage = currentPage,
+                PageSize = pageSize,
                 TotalItems = fileInfos.Count
             };
 
-            // Get first page of files
-            var paginatedFiles = fileInfos
-                .Take(pagination.PageSize)
-                .ToList();
+            // Ensure current page is valid
+            if (pagination.CurrentPage > pagination.TotalPages)
+            {
+                pagination.CurrentPage = Math.Max(1, pagination.TotalPages);
+            }
 
-            // Get fresh server space info
+            // Get the correct page of files
+            var skip = (pagination.CurrentPage - 1) * pagination.PageSize;
+            var paginatedFiles = fileInfos
+                .Skip(skip)
+                .Take(pagination.PageSize)
+                .ToList();            // Get fresh server space info
             var spaceInfo = GetServerSpaceInfo();
             ViewBag.UsedSpace = FormatBytes(spaceInfo.UsedSpace);
             ViewBag.TotalSpace = FormatBytes(spaceInfo.TotalSpace);
@@ -155,6 +181,10 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("List")]
         public IActionResult List(int page = 1, int itemsPerPage = 10, string sort = "upload_desc")
         {
+            // Save pagination preferences to session
+            HttpContext.Session.SetInt32("CurrentPage", page);
+            HttpContext.Session.SetInt32("ItemsPerPage", itemsPerPage);
+
             var fileInfos = FileInfos;
 
             // Apply sorting
@@ -918,6 +948,24 @@ namespace Lebiru.FileService.Controllers
             ViewBag.MaxDiskSpaceGB = _config.MaxDiskSpaceGB;
             ViewBag.IsDarkMode = Request.Cookies.ContainsKey("darkMode") && Request.Cookies["darkMode"] == "true";
             return View("Upload");
+        }
+
+        /// <summary>
+        /// Update session values for pagination preferences
+        /// </summary>
+        [HttpPost("UpdateSession")]
+        public IActionResult UpdateSession([FromBody] PaginationRequest request)
+        {
+            //Console.WriteLine($"UpdateSession called: page={request.page}, itemsPerPage={request.itemsPerPage}");
+            HttpContext.Session.SetInt32("CurrentPage", request.page);
+            HttpContext.Session.SetInt32("ItemsPerPage", request.itemsPerPage);
+
+            // Log the values that were actually stored
+            var storedPage = HttpContext.Session.GetInt32("CurrentPage");
+            var storedItems = HttpContext.Session.GetInt32("ItemsPerPage");
+            Console.WriteLine($"Session values set: CurrentPage={storedPage}, ItemsPerPage={storedItems}");
+
+            return Ok(new { success = true, currentPage = storedPage, itemsPerPage = storedItems });
         }
     }
 }

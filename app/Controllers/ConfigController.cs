@@ -10,35 +10,34 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Lebiru.FileService.Controllers
 {
-  /// <summary>
-  /// Controller for managing application configuration and settings
-  /// </summary>
-  [Route("Config")]
-  [ApiController]
-  [Authorize(Roles = UserRoles.Admin)]
-  public class ConfigController : Controller
-  {
-    private readonly IUserService _userService;
-
     /// <summary>
-    /// Initializes a new instance of the ConfigController class
+    /// Controller for managing application configuration and settings
     /// </summary>
-    public ConfigController(IUserService userService)
+    [Route("Config")]
+    [ApiController]
+    [Authorize(Roles = UserRoles.Admin)]
+    public class ConfigController : Controller
     {
-        _userService = userService;
-    }
-    // List of prefixes and exact matches for relevant environment variables
-    private static readonly string[] RelevantPrefixes = new[]
-    {
+        private readonly IUserService _userService;
+
+        /// <summary>
+        /// Initializes a new instance of the ConfigController class
+        /// </summary>
+        public ConfigController(IUserService userService)
+        {
+            _userService = userService;
+        }
+        // List of prefixes and exact matches for relevant environment variables
+        private static readonly string[] RelevantPrefixes = new[]
+        {
         "ASPNETCORE_",      // ASP.NET Core configuration
         "DOTNET_",          // .NET runtime configuration
-        "OTEL_",           // OpenTelemetry configuration
         "FileService_",    // Our app's configuration
         "Hangfire_"        // Hangfire configuration
     };
 
-    private static readonly string[] ExactMatches = new[]
-    {
+        private static readonly string[] ExactMatches = new[]
+        {
         "ASPNETCORE_ENVIRONMENT",
         "TZ",                        // Timezone
         "PORT",                      // Server port
@@ -47,34 +46,64 @@ namespace Lebiru.FileService.Controllers
         "WarningThresholdPercent"   // Our warning threshold config
     };
 
-    /// <summary>
-    /// The configuration view page. Displays relevant environment variables and settings.
-    /// </summary>
-    /// <returns>The configuration view with filtered environment variables</returns>
-    [HttpGet("View")]
-    public IActionResult Index()
-    {
-        var envVariables = Environment.GetEnvironmentVariables();
-        var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-        var fileServiceConfig = config.GetSection("FileService").Get<FileServiceConfig>();
-
-        var relevantVariables = new Dictionary<string, string>();
-
-        // Add environment variables
-        foreach (DictionaryEntry entry in envVariables)
+        /// <summary>
+        /// The configuration view page. Displays relevant environment variables and settings.
+        /// </summary>
+        /// <returns>The configuration view with filtered environment variables</returns>
+        [HttpGet("View")]
+        public IActionResult Index()
         {
-            var key = entry.Key.ToString() ?? string.Empty;
-            
-            // Check if this is a relevant variable
-            if (RelevantPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) ||
-                ExactMatches.Any(match => key.Equals(match, StringComparison.OrdinalIgnoreCase)))
-            {
-                relevantVariables[key] = entry.Value?.ToString() ?? string.Empty;
-            }
-        }
+            var envVariables = Environment.GetEnvironmentVariables();
+            var config = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var fileServiceConfig = config.GetSection("FileService").Get<FileServiceConfig>();
 
-        // Create descriptions for settings
-        var descriptions = new Dictionary<string, string>
+            var relevantVariables = new Dictionary<string, string>();
+
+            // Add version from HttpContext items (set in Program.cs)
+            if (HttpContext.Items["Version"] is string version)
+            {
+                relevantVariables["Application:Version"] = version;
+            }
+            else
+            {
+                // Try to read directly from appsettings.version.json if not in context
+                try
+                {
+                    var versionConfigLocal = new ConfigurationBuilder()
+                        .SetBasePath(Directory.GetCurrentDirectory())
+                        .AddJsonFile("appsettings.version.json", optional: true)
+                        .Build();
+
+                    relevantVariables["Application:Version"] = versionConfigLocal["Version"] ?? "Unknown";
+                }
+                catch
+                {
+                    // Fall back to Unknown if the file can't be read
+                    relevantVariables["Application:Version"] = "Unknown";
+                }
+            }
+
+            // Add Git commit information if available
+            if (HttpContext.Items["GitCommit"] is string gitCommit)
+            {
+                relevantVariables["Application:GitCommit"] = gitCommit;
+            }
+
+            // Add environment variables
+            foreach (DictionaryEntry entry in envVariables)
+            {
+                var key = entry.Key.ToString() ?? string.Empty;
+
+                // Check if this is a relevant variable
+                if (RelevantPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) ||
+                    ExactMatches.Any(match => key.Equals(match, StringComparison.OrdinalIgnoreCase)))
+                {
+                    relevantVariables[key] = entry.Value?.ToString() ?? string.Empty;
+                }
+            }
+
+            // Create descriptions for settings
+            var descriptions = new Dictionary<string, string>
         {
             { "FileService:MaxFileSizeMB", "Maximum allowed size for individual file uploads in megabytes" },
             { "FileService:MaxDiskSpaceGB", "Maximum disk space allowed for file storage in gigabytes" },
@@ -85,63 +114,55 @@ namespace Lebiru.FileService.Controllers
             { "PORT", "The port number on which the application is running" },
             { "VERSION", "Current version of the application" },
             { "DOTNET_", "Configuration settings for .NET runtime behavior" },
-            { "OTEL_", "OpenTelemetry configuration for application monitoring and tracing" },
             { "Hangfire_", "Job scheduling and background processing configuration" }
         };
-        ViewBag.Descriptions = descriptions;
+            ViewBag.Descriptions = descriptions;
 
-        // Get users for admin view
-        ViewBag.Users = _userService.GetAllUsers();
+            // Get users for admin view
+            ViewBag.Users = _userService.GetAllUsers();
 
-        // Add configuration values
-        var fileServiceSection = config.GetSection("FileService");
-        if (fileServiceSection != null)
-        {
-            relevantVariables["FileService:MaxFileSizeMB"] = 
-                fileServiceConfig?.MaxFileSizeMB.ToString() ?? "100";
-            relevantVariables["FileService:MaxDiskSpaceGB"] = 
-                fileServiceSection["MaxDiskSpaceGB"] ?? "100";
-            relevantVariables["FileService:WarningThresholdPercent"] = 
-                fileServiceConfig?.WarningThresholdPercent.ToString() ?? "90";
-            relevantVariables["FileService:CriticalThresholdPercent"] = 
-                fileServiceConfig?.CriticalThresholdPercent.ToString() ?? "99";
-            relevantVariables["FileService:MaxDiskSpaceGB"] = 
-                fileServiceSection["MaxDiskSpaceGB"] ?? "100";
-            relevantVariables["FileService:WarningThresholdPercent"] = 
-                fileServiceSection["WarningThresholdPercent"] ?? "90";
+            // Add configuration values
+            var fileServiceSection = config.GetSection("FileService");
+            if (fileServiceSection != null)
+            {
+                relevantVariables["FileService:MaxFileSizeMB"] =
+                    fileServiceConfig?.MaxFileSizeMB.ToString() ?? "100";
+                relevantVariables["FileService:MaxDiskSpaceGB"] =
+                    fileServiceSection["MaxDiskSpaceGB"] ?? "100";
+                relevantVariables["FileService:WarningThresholdPercent"] =
+                    fileServiceConfig?.WarningThresholdPercent.ToString() ?? "90";
+                relevantVariables["FileService:CriticalThresholdPercent"] =
+                    fileServiceConfig?.CriticalThresholdPercent.ToString() ?? "99";
+                relevantVariables["FileService:MaxDiskSpaceGB"] =
+                    fileServiceSection["MaxDiskSpaceGB"] ?? "100";
+                relevantVariables["FileService:WarningThresholdPercent"] =
+                    fileServiceSection["WarningThresholdPercent"] ?? "90";
+            }
+
+            // Sort the dictionary by key for consistent display
+            var sortedVariables = relevantVariables
+                .OrderBy(kv => kv.Key)
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            // Check the Dark Mode setting
+            var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
+            ViewBag.IsDarkMode = isDarkMode;
+
+            return View(sortedVariables);
         }
 
-        // Add app version from version config
-        var versionConfig = config.GetSection("Version");
-        if (versionConfig != null)
+        /// <summary>
+        /// Toggles the dark mode setting for the current session
+        /// </summary>
+        /// <param name="enableDarkMode">True to enable dark mode, false to disable</param>
+        /// <returns>A JSON result indicating success and the new dark mode state</returns>
+        [HttpPost("ToggleDarkMode")]
+        public IActionResult ToggleDarkMode([FromForm] bool enableDarkMode)
         {
-            relevantVariables["Application:Version"] = versionConfig.Value ?? "Unknown";
+            // Store the setting in the session
+            HttpContext.Session.SetString("DarkMode", enableDarkMode ? "true" : "false");
+            return Ok(new { Success = true, IsDarkMode = enableDarkMode });
         }
 
-        // Sort the dictionary by key for consistent display
-        var sortedVariables = relevantVariables
-            .OrderBy(kv => kv.Key)
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-
-        // Check the Dark Mode setting
-        var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
-        ViewBag.IsDarkMode = isDarkMode;
-
-        return View(sortedVariables);
     }
-
-    /// <summary>
-    /// Toggles the dark mode setting for the current session
-    /// </summary>
-    /// <param name="enableDarkMode">True to enable dark mode, false to disable</param>
-    /// <returns>A JSON result indicating success and the new dark mode state</returns>
-    [HttpPost("ToggleDarkMode")]
-    public IActionResult ToggleDarkMode([FromForm] bool enableDarkMode)
-    {
-      // Store the setting in the session
-      HttpContext.Session.SetString("DarkMode", enableDarkMode ? "true" : "false");
-      return Ok(new { Success = true, IsDarkMode = enableDarkMode });
-    }
-
-  }
 }
