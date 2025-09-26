@@ -16,14 +16,144 @@
             margin: 0px 0px 50px 0px;
         }
 
+        /* Sidebar styles with obsidian black texture */
+        .sidebar {
+            width: 200px;
+            height: 100vh;
+            position: fixed;
+            top: 56px; /* Navbar height */
+            left: 0;
+            background-color: #111; /* Dark base color */
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjMTExIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDVMNSAwWk02IDRMNCA2Wk0tMSAxTDEgLTFaIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMSI+PC9wYXRoPgo8L3N2Zz4=');
+            color: white;
+            overflow: hidden;
+            z-index: 100;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            bottom: 0;
+        }
+
+        .sidebar.expanded {
+            width: 200px;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-toggle {
+            cursor: pointer;
+            font-size: 24px;
+            color: #00ffff;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+        }
+
+        .sidebar-content {
+            padding: 15px 0;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: white;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+
+        .sidebar-item:hover {
+            background-color: rgba(255, 255, 255, 0.1); /* Subtle light hover */
+            color: #00ffff; /* Cyan for good contrast on dark background */
+            text-decoration: none;
+        }
+
+        .sidebar-item i {
+            font-size: 18px;
+            width: 30px;
+            text-align: center;
+        }
+
+        .sidebar-text {
+            margin-left: 10px;
+            opacity: 1;
+        }
+
+        .main-content {
+            margin-left: 200px;
+            width: calc(100% - 200px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .main-content > * {
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        /* All pages use full width */
+        .main-content > * {
+            max-width: 100%;
+        }
+
+        /* Shine effect for toggle */
+        @@keyframes shine {
+            0% {
+                background-position: -100px;
+            }
+            20% {
+                background-position: 200px;
+            }
+            100% {
+                background-position: 200px;
+            }
+        }
+
+        .sidebar-toggle.shine {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-toggle.shine::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+            background-size: 100px 100%;
+            transform: rotate(45deg);
+            animation: shine 1s ease-in-out;
+            pointer-events: none;
+        }
+
+        /* Dark mode support for sidebar with new colors */
+        body.dark-mode .sidebar {
+            background-color: #0b5394; /* Keep the same blue for dark mode */
+            border-right: 1px solid #c0c0c0;
+        }
+
+        body.dark-mode .sidebar-item:hover {
+            background-color: #00ffff; /* Cyan color from palette for dark mode hover */
+            color: #0b5394;
+        }
+
     </style>
     @RenderSection("Styles", required: false)
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-md navbar-dark bg-dark">
-            <div class="container">
-                <a class="navbar-brand" href="/File/Home">Lebiru.FileServer</a>
+<body class="@(ViewContext.RouteData.Values["action"]?.ToString()?.ToLower() == "index" ? "page-home" : "") @(ViewContext.RouteData.Values["action"]?.ToString()?.ToLower() == "swagger" || Context.Request.Path.Value?.ToLower().Contains("swagger") == true ? "page-swagger" : "")">
+    <header style="position: sticky; top: 0; z-index: 1020;">
+        <nav class="navbar navbar-expand-md navbar-dark" style="background-color: #111; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjMTExIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDVMNSAwWk02IDRMNCA2Wk0tMSAxTDEgLTFaIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMSI+PC9wYXRoPgo8L3N2Zz4=');">
+            <div class="container-fluid">
+                <a class="navbar-brand mr-auto" href="/File/Home">Lebiru.FileServer</a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -55,13 +185,31 @@
         </nav>
     </header>
 
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-content">
+                <a href="/File/Home" class="sidebar-item">
+                    <i class="fas fa-home"></i>
+                    <span class="sidebar-text">Home</span>
+                </a>
+                <a href="/File/Upload" class="sidebar-item">
+                    <i class="fas fa-upload"></i>
+                    <span class="sidebar-text">Upload File</span>
+                </a>
+            </div>
+            <!-- Sidebar toggle removed as sidebar is now permanently expanded -->
+        </div>
+
+        <!-- Main Content -->
+        <div class="container main-content">
+            <main role="main" class="pb-3">
+                @RenderBody()
+            </main>
+        </div>
     </div>
 
-    <footer class="border-top footer text-muted footer-bottom">
+    <footer class="border-top footer text-muted footer-bottom" style="background-color: #ffffff;">
         <div class="container footer-container py-3 my-3">
             &copy; @DateTime.Now.Year - Lebiru.FileServer Version: @ViewContext.HttpContext.Items["Version"] (@ViewContext.HttpContext.Items["GitCommit"])
         </div>
@@ -71,5 +219,13 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+    
+    <script>
+        // Sidebar is now permanently expanded, no toggle functionality needed
+        // This script is kept as a placeholder in case we need to add sidebar functionality in the future
+        document.addEventListener('DOMContentLoaded', () => {
+            // Sidebar is permanently expanded
+        });
+    </script>
 </body>
 </html>

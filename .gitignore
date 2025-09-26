@@ -267,3 +267,4 @@ app/app-data/
 Lebiru.FileService.Tests/coveragereport/
 .vscode/
 daily.todo
+mcp.json

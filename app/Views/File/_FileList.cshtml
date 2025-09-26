@@ -545,22 +545,22 @@
 
     // Only initialize date formatting once all necessary scripts are loaded
     function initializeDateFormatting() {
-        console.log("Initializing date formatting...");
+        // console.log("Initializing date formatting...");
         
         // Check for moment.js
         if (typeof moment === 'undefined') {
-            console.log("moment.js not found, loading it now");
+            // console.log("moment.js not found, loading it now");
             // Load moment.js first
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js', function() {
                 // Then load moment-timezone
                 loadScript('https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js', function() {
-                    console.log("Both moment.js scripts loaded, formatting dates");
+                    // console.log("Both moment.js scripts loaded, formatting dates");
                     // Format dates and ensure this runs even if other scripts interfere
                     setTimeout(formatUploadTimes, 100);
                 });
             });
         } else {
-            console.log("moment.js already available");
+            // console.log("moment.js already available");
             // Moment.js already available, format immediately
             setTimeout(formatUploadTimes, 100);
         }
@@ -568,7 +568,7 @@
 
     // Format upload times to local timezone
     function formatUploadTimes() {
-        console.log("Formatting upload times...");
+        // console.log("Formatting upload times...");
         document.querySelectorAll('[data-upload-time]').forEach(element => {
             const utcTime = element.dataset.uploadTime;
             const utcSpan = element.querySelector('.utc-time');
@@ -577,7 +577,7 @@
             try {
                 // Try using moment.js if available
                 if (typeof moment !== 'undefined') {
-                    console.log("Using moment.js for formatting");
+                    // console.log("Using moment.js for formatting");
                     const localTime = moment(utcTime).local();
                     const timeStr = localTime.format('MMM DD, YYYY, h:mm A');
                     const timezone = moment.tz.guess();
