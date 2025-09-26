@@ -39,8 +39,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **C#**: Programming language used in conjunction with ASP.NET Core.
 - **HTML/CSS/JavaScript**: Frontend technologies for building the web interface.
 - **Swagger**: API documentation tool used to document the RESTful API endpoints.
-- **OpenTelemetry**: Unified data telemetry for microservices
-- **Jaeger**: Open source, distributed tracing platform
+
 - **Hangfire**: Background job processing for scheduled tasks
 - **Hangfire.Console**: Enhanced logging for background jobs
 

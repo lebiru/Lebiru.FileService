@@ -9,10 +9,6 @@ using Lebiru.FileService.Models;
 using Lebiru.FileService.HangfireScheduler;
 using Microsoft.AspNetCore.Http.Features;
 using Hangfire.Console;
-using Microsoft.Extensions.Configuration;
-using OpenTelemetry.Trace;
-using OpenTelemetry.Resources;
-using Lebiru.FileService.Controllers;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,7 +48,7 @@ builder.Services.AddSingleton<IApiMetricsService, ApiMetricsService>();
 builder.Services.AddSingleton<IUserService, UserService>();
 
 // Register MIME validation service as singleton
-builder.Services.AddSingleton<MimeValidationService>();
+builder.Services.AddSingleton<IMimeValidationService, MimeValidationService>();
 
 builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
@@ -63,10 +59,9 @@ builder.Services.AddHangfireServer();
 builder.Services.AddTransient(provider =>
     new CleanupJob(
         "./uploads/",
-        provider.GetRequiredService<TracerProvider>(),
         provider.GetRequiredService<IUserService>()));
 builder.Services.AddTransient(provider =>
-    new ExpiryJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
+    new ExpiryJob("./uploads/"));
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -142,30 +137,15 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-var jaegerEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317";
 
-// Add OpenTelemetry
-builder.Services
-    .AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService("Lebiru.FileService"))
-    .WithTracing(tracing =>
-    {
-        tracing
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddSource("Hangfire")
-            .AddOtlpExporter(otlpOptions =>
-                {
-                    otlpOptions.Endpoint = new Uri(jaegerEndpoint);
-                });
-    });
 
 // Load version configuration
 var versionConfig = new ConfigurationBuilder()
-    .SetBasePath(AppContext.BaseDirectory)
+    .SetBasePath(Directory.GetCurrentDirectory())  // Use current directory instead of base directory
     .AddJsonFile("appsettings.version.json", optional: true, reloadOnChange: true)
     .Build();
 
+// Read version from configuration
 var version = versionConfig["Version"] ?? "Unknown";
 var gitCommit = versionConfig["GitCommit"] ?? "unknown";
 
@@ -199,14 +179,10 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Add OpenTelemetry Middleware for Hangfire
+// Execute next middleware
 app.Use(async (context, next) =>
 {
-    var tracer = app.Services.GetRequiredService<TracerProvider>().GetTracer("Hangfire");
-    using (var span = tracer.StartActiveSpan("Hangfire Job Execution"))
-    {
-        await next();
-    }
+    await next();
 });
 
 app.UseRouting();

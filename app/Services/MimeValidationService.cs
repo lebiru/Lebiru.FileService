@@ -8,8 +8,19 @@ namespace Lebiru.FileService.Services
   /// <summary>
   /// Service for validating file types by MIME and content
   /// </summary>
-  public class MimeValidationService
+  public class MimeValidationService : IMimeValidationService
   {
+    /// <summary>
+    /// Determines if a file is valid based on its name and content type
+    /// </summary>
+    /// <param name="fileName">The name of the file</param>
+    /// <param name="contentType">The MIME type of the file</param>
+    /// <returns>Whether the file is valid</returns>
+    public bool ValidateFile(string fileName, string contentType)
+    {
+      var result = ValidateFileDetailed(fileName, contentType);
+      return result.IsValid;
+    }
     // List of allowed MIME types
     private readonly List<string> _allowedMimeTypes = new List<string>
         {

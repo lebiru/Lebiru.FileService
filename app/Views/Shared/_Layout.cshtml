@@ -8,6 +8,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <link rel="icon" href="@Url.Content("~/images/favicon.ico")" />
     <style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        html {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;     /* Firefox */
+        }
+
         .footer-container {
             margin-top: 10px;
         }
@@ -16,19 +27,18 @@
             margin: 0px 0px 50px 0px;
         }
 
-        /* Sidebar styles with obsidian black texture */
+        /* Sidebar styles */
         .sidebar {
             width: 200px;
             height: 100vh;
             position: fixed;
             top: 56px; /* Navbar height */
             left: 0;
-            background-color: #111; /* Dark base color */
-            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjMTExIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDVMNSAwWk02IDRMNCA2Wk0tMSAxTDEgLTFaIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMSI+PC9wYXRoPgo8L3N2Zz4=');
-            color: white;
+            background-color: #f7f7f7;
+            color: #333;
             overflow: hidden;
             z-index: 100;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             bottom: 0;
         }
 
@@ -47,11 +57,11 @@
         .sidebar-toggle {
             cursor: pointer;
             font-size: 24px;
-            color: #00ffff;
-            background-color: rgba(0, 0, 0, 0.3);
+            color: #007bff;
+            background-color: rgba(0, 0, 0, 0.05);
             padding: 8px;
             border-radius: 50%;
-            box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.2);
         }
 
         .sidebar-content {
@@ -62,15 +72,15 @@
             display: flex;
             align-items: center;
             padding: 12px 15px;
-            color: white;
+            color: #333;
             text-decoration: none;
             transition: background-color 0.2s;
             white-space: nowrap;
         }
 
         .sidebar-item:hover {
-            background-color: rgba(255, 255, 255, 0.1); /* Subtle light hover */
-            color: #00ffff; /* Cyan for good contrast on dark background */
+            background-color: rgba(0, 0, 0, 0.05); /* Subtle dark hover */
+            color: #007bff; /* Bootstrap primary blue */
             text-decoration: none;
         }
 
@@ -135,15 +145,30 @@
             pointer-events: none;
         }
 
-        /* Dark mode support for sidebar with new colors */
+        /* Dark mode support for sidebar */
         body.dark-mode .sidebar {
-            background-color: #0b5394; /* Keep the same blue for dark mode */
-            border-right: 1px solid #c0c0c0;
+            background-color: #222;
+            color: #f7f7f7;
+            border-right: 1px solid #333;
+        }
+        
+        body.dark-mode .sidebar-item {
+            color: #f7f7f7;
         }
 
         body.dark-mode .sidebar-item:hover {
-            background-color: #00ffff; /* Cyan color from palette for dark mode hover */
-            color: #0b5394;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #00ffff;
+        }
+        
+        /* Dark mode support for navbar */
+        body.dark-mode .navbar {
+            background-color: #222 !important;
+        }
+        
+        body.dark-mode .navbar-light .navbar-brand,
+        body.dark-mode .navbar-light .navbar-nav .nav-link {
+            color: #f7f7f7;
         }
 
     </style>
@@ -151,7 +176,7 @@
 </head>
 <body class="@(ViewContext.RouteData.Values["action"]?.ToString()?.ToLower() == "index" ? "page-home" : "") @(ViewContext.RouteData.Values["action"]?.ToString()?.ToLower() == "swagger" || Context.Request.Path.Value?.ToLower().Contains("swagger") == true ? "page-swagger" : "")">
     <header style="position: sticky; top: 0; z-index: 1020;">
-        <nav class="navbar navbar-expand-md navbar-dark" style="background-color: #111; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjMTExIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDVMNSAwWk02IDRMNCA2Wk0tMSAxTDEgLTFaIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMSI+PC9wYXRoPgo8L3N2Zz4=');">
+        <nav class="navbar navbar-expand-md navbar-light" style="background-color: #f7f7f7;">
             <div class="container-fluid">
                 <a class="navbar-brand mr-auto" href="/File/Home">Lebiru.FileServer</a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">

@@ -11,7 +11,7 @@ using Lebiru.FileService.Controllers;
 using Lebiru.FileService.Models;
 using Lebiru.FileService.Services;
 using Hangfire;
-using OpenTelemetry.Trace;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Http.Features;
@@ -48,7 +48,7 @@ namespace Lebiru.FileService.Tests.Controllers
 
             var configSection = new Mock<IConfigurationSection>();
             configSection.Setup(s => s.Value).Returns("100");
-            
+
             _configMock = new Mock<IConfiguration>();
             _configMock.Setup(c => c.GetSection("FileService"))
                       .Returns(configSection.Object);
@@ -68,15 +68,21 @@ namespace Lebiru.FileService.Tests.Controllers
             // Set up metrics service mock
             _metricsServiceMock.Setup(m => m.LastUpdated).Returns(DateTime.UtcNow);
 
-            var tracerProvider = TracerProvider.Default;
-            var cleanupJob = new CleanupJob(_tempPath, tracerProvider, _userServiceMock.Object);
+            var cleanupJob = new CleanupJob(_tempPath, _userServiceMock.Object);
+            var mimeValidationServiceMock = new Mock<IMimeValidationService>();
+
+            // Setup validation to always return valid for test files
+            mimeValidationServiceMock
+                .Setup(m => m.ValidateFileDetailed(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns((true, "File type is allowed"));
 
             _controller = new FileController(
                 cleanupJob,
                 _backgroundJobClientMock.Object,
                 _configMock.Object,
                 _metricsServiceMock.Object,
-                _userServiceMock.Object);
+                _userServiceMock.Object,
+                mimeValidationServiceMock.Object);
 
             // Setup controller context
             // Set up service provider with all required services
@@ -224,14 +230,21 @@ namespace Lebiru.FileService.Tests.Controllers
             var storage = new MemoryStorage();
             JobStorage.Current = storage;
             var backgroundClient = new BackgroundJobClient(storage);
-            var cleanupJob = new CleanupJob(_tempPath, TracerProvider.Default, _userServiceMock.Object);
+            var cleanupJob = new CleanupJob(_tempPath, _userServiceMock.Object);
+            var mimeValidationServiceMock = new Mock<IMimeValidationService>();
+
+            // Setup validation to always return valid for test files
+            mimeValidationServiceMock
+                .Setup(m => m.ValidateFileDetailed(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns((true, "File type is allowed"));
 
             var controller = new FileController(
                 cleanupJob,
                 backgroundClient,
                 _configMock.Object,
                 _metricsServiceMock.Object,
-                _userServiceMock.Object);
+                _userServiceMock.Object,
+                mimeValidationServiceMock.Object);
 
             // Act
             var result = controller.TriggerCleanup() as ObjectResult;

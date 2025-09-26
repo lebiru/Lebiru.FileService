@@ -6,7 +6,6 @@
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
       },
       "dotnetRunMessages": true,
       "applicationUrl": "http://localhost:3000"
@@ -17,7 +16,6 @@
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
       },
       "dotnetRunMessages": true,
       "applicationUrl": "https://localhost:3001;http://localhost:3000"
@@ -29,7 +27,6 @@
       "environmentVariables": {
         "ASPNETCORE_HTTPS_PORTS": "3001",
         "ASPNETCORE_HTTP_PORTS": "3000",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
       },
       "publishAllPorts": false,
       "useSSL": true
