@@ -20,6 +20,9 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **File Type Icons**: 📂 Files are displayed with appropriate Font Awesome icons based on file type.
 - **Local Time Display**: 🕒 Upload times automatically displayed in user's local timezone with AM/PM format.
 - **File Expiry**: ⏳ Set expiration times for uploaded files (1 minute, 1 hour, 1 day, 1 week, or never).
+- **Sidebar Navigation**: 📋 Permanent sidebar navigation for easy access to all application features.
+- **MIME Type Validation**: 🛡️ Security feature that validates file MIME types during upload to prevent malicious files.
+- **Enhanced Upload Interface**: 📤 Dedicated upload page with drag-and-drop functionality for easier file uploads.
 - **Background Jobs**: 🔄 Automated cleanup of expired files using Hangfire.
 - **Job Monitoring**: 📊 Hangfire dashboard for monitoring file cleanup and expiry jobs.
 - **Console Logging**: 📝 Detailed logging of file deletions and cleanup operations.
@@ -89,13 +92,25 @@ The API documentation is available through Swagger. Once the application is runn
 - All API endpoints and web interfaces require authentication
 - Current user is displayed in the navigation bar
 
+### Security Features
+
+- **Authentication**: All access requires valid credentials with appropriate role permissions
+- **MIME Type Validation**: Both client-side and server-side validation prevents upload of potentially dangerous files
+- **File Extension Filtering**: Blocks known dangerous file extensions (.exe, .bat, .cmd, etc.)
+- **Role-Based Access**: Different permissions for Admin, Contributor, and Viewer roles
+- **File Ownership**: Users can only modify or delete their own files unless they have Admin privileges
+- **Data Validation**: Input validation throughout the application prevents injection attacks
+
 ### File Operations
 
 - **Uploading Files**: 
-  - Use the web interface or send a POST request to `/File/CreateDoc` with the file attached as form data
+  - Use the dedicated upload page with drag-and-drop functionality or the file selector
+  - Real-time MIME type validation secures against malicious file uploads
+  - Visual feedback shows validation status for each file being uploaded
   - Set expiry time during upload (1 minute, 1 hour, 1 day, 1 week, or never)
   - Files are automatically deleted when they expire
   - Files are associated with the uploading user
+  - Progress indicator shows upload status
 - **Downloading Files**: 
   - Click the download link in the web interface or send a GET request to `/File/DownloadFile?filename=your_file_name`
   - Batch download multiple files as a ZIP archive
@@ -128,6 +143,7 @@ The API documentation is available through Swagger. Once the application is runn
   - Monitor file operations through Hangfire dashboard at `/hangfire`
   - "Delete All Files" feature for admins with proper cleanup of all related data
 - **User Interface**:
+  - Permanent sidebar navigation for quick access to all app features
   - Image previews for supported formats (PNG, JPG, GIF, BMP)
   - Click previews to view full-size images
   - Toggle dark mode for comfortable viewing
@@ -135,6 +151,7 @@ The API documentation is available through Swagger. Once the application is runn
   - Sort files by various criteria (name, size, upload time, expiry)
   - API metrics dashboard showing usage statistics
   - Server space usage monitoring
+  - Real-time file validation feedback during uploads
 
 ## Deployment
 
