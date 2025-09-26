@@ -6,6 +6,7 @@ using Lebiru.FileService.HangfireJobs;
 using Lebiru.FileService;
 using Lebiru.FileService.Services;
 using Lebiru.FileService.Models;
+using Lebiru.FileService.HangfireScheduler;
 using Microsoft.AspNetCore.Http.Features;
 using Hangfire.Console;
 using Microsoft.Extensions.Configuration;
@@ -50,25 +51,28 @@ builder.Services.AddSingleton<IApiMetricsService, ApiMetricsService>();
 // Register user service as singleton
 builder.Services.AddSingleton<IUserService, UserService>();
 
+// Register MIME validation service as singleton
+builder.Services.AddSingleton<MimeValidationService>();
+
 builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
     .UseConsole());
 builder.Services.AddHangfireServer();
 
 // Register the cleanup jobs
-builder.Services.AddTransient(provider => 
+builder.Services.AddTransient(provider =>
     new CleanupJob(
-        "./uploads/", 
+        "./uploads/",
         provider.GetRequiredService<TracerProvider>(),
         provider.GetRequiredService<IUserService>()));
-builder.Services.AddTransient(provider => 
+builder.Services.AddTransient(provider =>
     new ExpiryJob("./uploads/", provider.GetRequiredService<TracerProvider>()));
 
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
         Title = "Lebiru.FileService API",
         Version = "v1",
         Description = "API for managing and serving files",
@@ -78,12 +82,12 @@ builder.Services.AddSwaggerGen(c =>
             Url = new Uri("https://github.com/lebiru")
         }
     });
-    
+
     // Add XML comments
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
-    
+
     // Add security definition
     c.AddSecurityDefinition("CookieAuth", new OpenApiSecurityScheme
     {
@@ -98,10 +102,10 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference 
-                { 
-                    Type = ReferenceType.SecurityScheme, 
-                    Id = "CookieAuth" 
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "CookieAuth"
                 }
             },
             Array.Empty<string>()
@@ -212,7 +216,8 @@ app.UseAuthorization();
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     DashboardTitle = "Lebiru.FileService - Background Jobs",
-    AppPath = "/File/Home"    // Redirects "Back to Site" link
+    AppPath = "/File/Home",    // Redirects "Back to Site" link
+    Authorization = new[] { new HangfireAuthorizationFilter() }
 });
 app.UseHttpsRedirection();
 app.UseStaticFiles();

@@ -1,0 +1,717 @@
+@using Lebiru.FileService.Models
+@{
+    ViewData["Title"] = "Upload Files";
+    Layout = "_Layout";
+    var expiryOptions = (ExpiryOption[])ViewBag.ExpiryOptions;
+}
+
+<style>
+    .upload-page-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        width: 100%;
+    }
+
+    .upload-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        margin-bottom: 20px;
+    }
+
+    body.dark-mode .upload-card {
+        background-color: #222;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .upload-title {
+        font-size: 24px;
+        margin-bottom: 20px;
+        font-weight: 500;
+    }
+
+    .upload-form-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .file-input-container {
+        border: 2px dashed #ccc;
+        padding: 40px;
+        text-align: center;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .file-input-container:hover {
+        border-color: #007bff;
+        background-color: #f0f7ff;
+    }
+
+    body.dark-mode .file-input-container {
+        background-color: #333;
+        border-color: #555;
+    }
+
+    body.dark-mode .file-input-container:hover {
+        border-color: #007bff;
+        background-color: #0c2d4a;
+    }
+
+    .file-input-container i {
+        font-size: 48px;
+        color: #ccc;
+        margin-bottom: 15px;
+        display: block;
+    }
+
+    .file-input-label {
+        font-size: 18px;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .file-input-sublabel {
+        color: #666;
+    }
+
+    body.dark-mode .file-input-sublabel {
+        color: #aaa;
+    }
+
+    .expiry-container {
+        margin-top: 20px;
+    }
+
+    .expiry-select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: white;
+        color: #333;
+    }
+
+    body.dark-mode .expiry-select {
+        background-color: #333;
+        border-color: #555;
+        color: #eee;
+    }
+
+    .upload-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .upload-btn:hover {
+        background-color: #0069d9;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        transform: translateY(-2px);
+        transition: all 0.3s;
+    }
+
+    .upload-btn:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+
+    .file-list {
+        margin-top: 20px;
+    }
+
+    .selected-file {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+
+    body.dark-mode .selected-file {
+        background-color: #2d2d2d;
+    }
+    
+    .file-status {
+        display: flex;
+        align-items: center;
+        margin-left: 10px;
+        min-width: 24px;
+        justify-content: center;
+    }
+    
+    .file-status .valid {
+        color: #4CAF50;
+    }
+    
+    .file-status .invalid {
+        color: #F44336;
+    }
+    
+    .file-status .processing {
+        color: #2196F3;
+    }
+    
+    .mime-info {
+        margin-top: 4px;
+        font-size: 0.75rem;
+        color: #666;
+    }
+    
+    body.dark-mode .mime-info {
+        color: #aaa;
+    }
+
+    .file-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .remove-file {
+        cursor: pointer;
+        color: #dc3545;
+    }
+
+    .upload-progress {
+        height: 6px;
+        margin-top: 20px;
+        border-radius: 3px;
+        background-color: #e9ecef;
+        overflow: hidden;
+        display: none;
+    }
+
+    .upload-progress-bar {
+        height: 100%;
+        background-color: #007bff;
+        width: 0;
+        transition: width 0.3s;
+    }
+
+    body.dark-mode .upload-progress {
+        background-color: #333;
+    }
+
+    .shine-effect {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .shine-effect::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+        background-size: 100px 100%;
+        transform: rotate(45deg);
+        animation: shine 1s ease-in-out;
+        pointer-events: none;
+    }
+
+    @@keyframes shine {
+        0% {
+            background-position: -100px;
+        }
+        20% {
+            background-position: 200px;
+        }
+        100% {
+            background-position: 200px;
+        }
+    }
+    
+    /* Notification styles */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        z-index: 9999;
+        opacity: 0;
+        transform: translateY(-20px);
+        transition: opacity 0.3s, transform 0.3s;
+    }
+    
+    .notification.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: center;
+    }
+    
+    .notification-content i {
+        margin-right: 10px;
+    }
+    
+    .notification-success {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        color: #155724;
+    }
+    
+    .notification-info {
+        background-color: #d1ecf1;
+        border-left: 4px solid #17a2b8;
+        color: #0c5460;
+    }
+    
+    .notification-warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        color: #856404;
+    }
+    
+    .notification-error {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+        color: #721c24;
+    }
+    
+    body.dark-mode .notification {
+        background-color: #343a40;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    body.dark-mode .notification-success {
+        background-color: #1e4a30;
+        color: #d4edda;
+    }
+    
+    body.dark-mode .notification-info {
+        background-color: #1a4957;
+        color: #d1ecf1;
+    }
+    
+    body.dark-mode .notification-warning {
+        background-color: #533f03;
+        color: #fff3cd;
+    }
+    
+    body.dark-mode .notification-error {
+        background-color: #501217;
+        color: #f8d7da;
+    }
+</style>
+
+<div class="upload-page-container">
+    <div class="upload-card">
+        <h1 class="upload-title">Upload Files</h1>
+        
+        <form id="uploadForm" enctype="multipart/form-data" class="upload-form-container">
+            <div class="file-input-container" onclick="document.getElementById('files').click()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <div class="file-input-label">Click to select files or drag and drop</div>
+                <div class="file-input-sublabel">Maximum file size: @(ViewBag.MaxFileSizeMB) MB</div>
+                <div class="file-input-sublabel">Maximum total storage: @(ViewBag.MaxDiskSpaceGB) GB</div>
+                <input type="file" name="files" id="files" style="display:none" multiple>
+            </div>
+            
+            <div id="fileList" class="file-list"></div>
+            
+            <div class="expiry-container">
+                <label for="expiryOption">File Expiration:</label>
+                <select name="expiryOption" id="expiryOption" class="expiry-select">
+                    @foreach (var option in expiryOptions)
+                    {
+                        var field = option.GetType().GetField(option.ToString());
+                        var displayAttr = field?.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+                            .Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>()
+                            .FirstOrDefault();
+                        var displayName = displayAttr?.Name ?? option.ToString();
+                        <option value="@((int)option)">@displayName</option>
+                    }
+                </select>
+            </div>
+            
+            <div class="upload-progress">
+                <div class="upload-progress-bar"></div>
+            </div>
+            
+            <button type="button" id="upload-button" class="upload-btn" onclick="uploadFiles()">
+                <i class="fas fa-upload"></i> Upload Files
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Array to keep track of all uploaded files and their validation status
+    const uploadedFiles = [];
+    
+    document.getElementById('files').addEventListener('change', function(e) {
+        const fileList = document.getElementById('fileList');
+        
+        // Don't clear existing files
+        if (this.files.length > 0) {
+            Array.from(this.files).forEach(file => {
+                // Create a unique ID for each file
+                const fileId = Date.now() + '-' + file.name;
+                
+                // Add to our tracking array
+                uploadedFiles.push({
+                    id: fileId,
+                    file: file,
+                    isValid: undefined // Will be set after validation
+                });
+                
+                const fileItem = document.createElement('div');
+                fileItem.className = 'selected-file';
+                fileItem.dataset.fileName = file.name;
+                fileItem.dataset.fileId = fileId;
+                
+                const fileStatusDiv = document.createElement('div');
+                fileStatusDiv.className = 'file-status';
+                fileStatusDiv.innerHTML = `<i class="fas fa-spinner fa-spin processing"></i>`;
+                
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-name">${file.name} (${formatFileSize(file.size)})</div>
+                        <div class="mime-info">Checking file type...</div>
+                    </div>
+                `;
+                
+                const removeButton = document.createElement('div');
+                removeButton.className = 'remove-file';
+                removeButton.innerHTML = '<i class="fas fa-times"></i>';
+                removeButton.onclick = function() { removeFile(this); };
+                
+                fileItem.appendChild(fileStatusDiv);
+                fileItem.appendChild(removeButton);
+                fileList.appendChild(fileItem);
+                
+                // Validate the file's MIME type
+                validateFileMimeType(file, fileItem);
+            });
+        }
+    });
+    
+    /**
+     * Validates a file's MIME type and updates the UI accordingly
+     * @@param {File} file - The file to validate
+     * @@param {HTMLElement} fileItem - The file item element in the UI
+     */
+    function validateFileMimeType(file, fileItem) {
+        const fileStatusDiv = fileItem.querySelector('.file-status');
+        const mimeInfoDiv = fileItem.querySelector('.mime-info');
+        const fileId = fileItem.dataset.fileId;
+        
+        // Find the file in our tracking array
+        const fileObj = uploadedFiles.find(f => f.id === fileId);
+        
+        MimeValidator.validateFile(file).then(result => {
+            // Remove processing indicator
+            fileStatusDiv.innerHTML = '';
+            
+            if (result.valid) {
+                // File is valid
+                fileStatusDiv.innerHTML = `<i class="fas fa-check-circle valid"></i>`;
+                mimeInfoDiv.textContent = `Type: ${result.mimeType}`;
+                fileItem.dataset.valid = 'true';
+                
+                // Update our tracking array
+                if (fileObj) {
+                    fileObj.isValid = true;
+                }
+            } else {
+                // File is invalid
+                fileStatusDiv.innerHTML = `<i class="fas fa-exclamation-circle invalid"></i>`;
+                mimeInfoDiv.textContent = result.message;
+                fileItem.dataset.valid = 'false';
+                
+                // Update our tracking array
+                if (fileObj) {
+                    fileObj.isValid = false;
+                }
+                
+                // Show notification for invalid file
+                showNotification(`Security warning: ${result.message}`, 'error');
+            }
+        });
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function removeFile(element) {
+        // Get the parent file item
+        const fileItem = element.closest('.selected-file');
+        
+        if (!fileItem) {
+            return; // Safety check
+        }
+        
+        // Get the file ID to remove
+        const fileId = fileItem.dataset.fileId;
+        
+        // Remove from our tracking array
+        if (fileId) {
+            const fileIndex = uploadedFiles.findIndex(f => f.id === fileId);
+            if (fileIndex !== -1) {
+                uploadedFiles.splice(fileIndex, 1);
+            }
+        }
+        
+        // Remove the file item from the UI
+        fileItem.remove();
+        
+        // Check if we have any files left
+        const remainingFiles = document.querySelectorAll('.selected-file');
+        if (remainingFiles.length === 0) {
+            // Reset the file input if there are no files left
+            const fileInput = document.getElementById('files');
+            fileInput.value = "";
+        }
+        
+        // Show a confirmation message
+        showNotification('File removed', 'info');
+    }
+    
+    function uploadFiles() {
+        const expiryOption = document.getElementById('expiryOption');
+        const uploadButton = document.getElementById('upload-button');
+        const progressBar = document.querySelector('.upload-progress');
+        const progressBarInner = document.querySelector('.upload-progress-bar');
+        
+        // Check if we have any files
+        if (uploadedFiles.length === 0) {
+            showNotification('Please select at least one file to upload.', 'error');
+            return;
+        }
+        
+        // Check if any files are pending validation
+        const pendingValidations = uploadedFiles.some(file => file.isValid === undefined);
+        
+        if (pendingValidations) {
+            showNotification('Please wait while all files are being validated', 'info');
+            return;
+        }
+        
+        // Check if any files failed validation
+        const invalidFiles = uploadedFiles.filter(file => file.isValid === false);
+        
+        if (invalidFiles.length > 0) {
+            const fileNames = invalidFiles.map(file => file.file.name).join(', ');
+            showNotification(`Cannot upload. Please remove these invalid files: ${fileNames}`, 'error');
+            return;
+        }
+        
+        // Check if we have at least one valid file
+        const validFiles = uploadedFiles.filter(file => file.isValid === true);
+        if (validFiles.length === 0) {
+            showNotification('Please select at least one valid file to upload.', 'error');
+            return;
+        }
+        
+        const formData = new FormData();
+        // Append each valid file to FormData
+        validFiles.forEach(file => {
+            if (file && file.file) {
+                formData.append('files', file.file);
+            }
+        });
+        formData.append('expiryOption', expiryOption.value);
+        
+        uploadButton.disabled = true;
+        uploadButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        progressBar.style.display = 'block';
+        
+        // Simulate progress (in a real app, you'd use the Fetch API's upload progress)
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            progressBarInner.style.width = `${Math.min(progress, 90)}%`;
+            if (progress >= 90) clearInterval(interval);
+        }, 200);
+        
+        fetch('/File/Upload', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(text || `Error: ${response.status}`);
+                });
+            }
+            return response.text();
+        })
+        .then(data => {
+            clearInterval(interval);
+            progressBarInner.style.width = '100%';
+            
+            setTimeout(() => {
+                showNotification('Files uploaded successfully! Redirecting to home...', 'success');
+                setTimeout(() => {
+                    window.location.href = '/File/Home';
+                }, 1500);
+            }, 500);
+        })
+        .catch(error => {
+            clearInterval(interval);
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = '<i class="fas fa-upload"></i> Upload Files';
+            progressBar.style.display = 'none';
+            showNotification(`Upload failed: ${error.message}`, 'error');
+        });
+    }
+    
+    // Handle drag and drop
+    const dropArea = document.querySelector('.file-input-container');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight() {
+        dropArea.classList.add('file-input-container-active');
+        dropArea.style.borderColor = '#007bff';
+        dropArea.style.backgroundColor = document.body.classList.contains('dark-mode') ? '#0c2d4a' : '#f0f7ff';
+    }
+    
+    function unhighlight() {
+        dropArea.classList.remove('file-input-container-active');
+        dropArea.style.borderColor = '';
+        dropArea.style.backgroundColor = '';
+    }
+    
+    dropArea.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        // Since we can't directly modify the FileList, we need to create a new input
+        const fileInput = document.getElementById('files');
+        const parent = fileInput.parentElement;
+        parent.removeChild(fileInput);
+        
+        const newInput = document.createElement('input');
+        newInput.type = 'file';
+        newInput.id = 'files';
+        newInput.name = 'files';
+        newInput.multiple = true;
+        newInput.style.display = 'none';
+        parent.appendChild(newInput);
+        
+        // Process the dropped files
+        if (files.length > 0) {
+            const fileList = document.getElementById('fileList');
+            
+            Array.from(files).forEach(file => {
+                // Create a unique ID for each file
+                const fileId = Date.now() + '-' + file.name;
+                
+                // Add to our tracking array
+                uploadedFiles.push({
+                    id: fileId,
+                    file: file,
+                    isValid: undefined // Will be set after validation
+                });
+                
+                const fileItem = document.createElement('div');
+                fileItem.className = 'selected-file';
+                fileItem.dataset.fileName = file.name;
+                fileItem.dataset.fileId = fileId;
+                
+                const fileStatusDiv = document.createElement('div');
+                fileStatusDiv.className = 'file-status';
+                fileStatusDiv.innerHTML = `<i class="fas fa-spinner fa-spin processing"></i>`;
+                
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-name">${file.name} (${formatFileSize(file.size)})</div>
+                        <div class="mime-info">Checking file type...</div>
+                    </div>
+                `;
+                
+                const removeButton = document.createElement('div');
+                removeButton.className = 'remove-file';
+                removeButton.innerHTML = '<i class="fas fa-times"></i>';
+                removeButton.onclick = function() { removeFile(this); };
+                
+                fileItem.appendChild(fileStatusDiv);
+                fileItem.appendChild(removeButton);
+                fileList.appendChild(fileItem);
+                
+                // Validate the file's MIME type
+                validateFileMimeType(file, fileItem);
+            });
+            
+            // Store the files in the input
+            const dataTransfer = new DataTransfer();
+            Array.from(files).forEach(file => {
+                dataTransfer.items.add(file);
+            });
+            newInput.files = dataTransfer.files;
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'notification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
+        
+        // Set notification content and style
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        // Show notification
+        notification.classList.add('show');
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+</script>
+<script src="/js/mimeValidator.js"></script>

@@ -27,6 +27,7 @@ namespace Lebiru.FileService.Controllers
         private readonly FileServiceConfig _config;
         private readonly IApiMetricsService _metricsService;
         private readonly IUserService _userService;
+        private readonly MimeValidationService _mimeValidationService;
 
         private static readonly object _fileLock = new object();
 
@@ -69,12 +70,14 @@ namespace Lebiru.FileService.Controllers
         /// <param name="configuration">The application configuration</param>
         /// <param name="metricsService">The API metrics tracking service</param>
         /// <param name="userService">The user management service</param>
+        /// <param name="mimeValidationService">Service for validating file MIME types</param>
         public FileController(
             CleanupJob cleanupJob,
             IBackgroundJobClient backgroundJobClient,
             IConfiguration configuration,
             IApiMetricsService metricsService,
-            IUserService userService)
+            IUserService userService,
+            MimeValidationService mimeValidationService)
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
@@ -87,6 +90,7 @@ namespace Lebiru.FileService.Controllers
             _config = configuration.GetSection("FileService").Get<FileServiceConfig>() ?? new FileServiceConfig();
             _metricsService = metricsService ?? throw new ArgumentNullException(nameof(metricsService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _mimeValidationService = mimeValidationService ?? throw new ArgumentNullException(nameof(mimeValidationService));
         }
 
         /// <summary>
@@ -126,6 +130,7 @@ namespace Lebiru.FileService.Controllers
             ViewBag.CriticalThresholdPercent = _config.CriticalThresholdPercent;
             ViewBag.ExpiryOptions = Enum.GetValues<ExpiryOption>();
             ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
+            ViewBag.MaxDiskSpaceGB = _config.MaxDiskSpaceGB;
             ViewBag.FileCount = fileInfos.Count;
             ViewBag.Pagination = pagination;
             ViewBag.Sort = "upload_desc";
@@ -217,19 +222,27 @@ namespace Lebiru.FileService.Controllers
         /// <param name="expiryOption">When the file should expire and be deleted. Defaults to never.</param>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost("CreateDoc")]
+        [HttpPost("Upload")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public async Task<IActionResult> Upload(List<IFormFile> files, [FromForm] ExpiryOption expiryOption = ExpiryOption.Never)
         {
             if (files == null || files.Count == 0)
                 return BadRequest("No files uploaded.");
 
-            // Check file size limits
+            // Check file size limits and MIME types
             foreach (var file in files)
             {
                 var maxFileSizeBytes = _config.MaxFileSizeMB * 1024L * 1024L;
                 if (file.Length > maxFileSizeBytes)
                 {
                     return BadRequest($"File '{file.FileName}' exceeds the maximum allowed size of {_config.MaxFileSizeMB} MB");
+                }
+
+                // Validate the file's MIME type
+                var validationResult = _mimeValidationService.ValidateFileDetailed(file.FileName, file.ContentType);
+                if (!validationResult.IsValid)
+                {
+                    return BadRequest($"Security check failed: {validationResult.Message}");
                 }
             }
 
@@ -891,6 +904,20 @@ namespace Lebiru.FileService.Controllers
             }
 
             return Json(new { filename, checksum });
+        }
+
+        /// <summary>
+        /// The dedicated upload page for the app. Provides a user-friendly interface for uploading files.
+        /// </summary>
+        /// <returns>The upload view</returns>
+        [HttpGet("Upload")]
+        public IActionResult UploadPage()
+        {
+            ViewBag.ExpiryOptions = Enum.GetValues(typeof(ExpiryOption));
+            ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
+            ViewBag.MaxDiskSpaceGB = _config.MaxDiskSpaceGB;
+            ViewBag.IsDarkMode = Request.Cookies.ContainsKey("darkMode") && Request.Cookies["darkMode"] == "true";
+            return View("Upload");
         }
     }
 }

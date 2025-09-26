@@ -166,7 +166,9 @@
         .info-cards {
             display: flex;
             gap: 16px;
-            flex-shrink: 0;
+            flex-wrap: wrap;
+            width: 100%;
+            margin-bottom: 20px;
         }
 
         .server-info-container, .file-count-container, .doc-count-container {
@@ -176,6 +178,8 @@
             border-radius: 6px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
             min-width: 200px;
+            flex: 1;
+            margin-right: 20px;
         }
 
         .dark-mode .server-info-container,
@@ -394,27 +398,7 @@
     <h2 style="margin: 15px auto;">Dashboard</h2>
 
     <div class="primary-bar-container">
-        <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" name="files" id="files" class="button" multiple>
-            <div class="max-file-size-info">
-                <small>Maximum total size: @(ViewBag.MaxFileSizeMB) MB</small>
-            </div>
-            <div class="expiry-select">
-                <label for="expiryOption">File Expiry:</label>
-                <select name="expiryOption" id="expiryOption" class="form-control">
-                    @foreach (var option in expiryOptions)
-                    {
-                        var field = option.GetType().GetField(option.ToString());
-                        var displayAttr = field?.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
-                            .Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>()
-                            .FirstOrDefault();
-                        var displayName = displayAttr?.Name ?? option.ToString();
-                        <option value="@((int)option)">@displayName</option>
-                    }
-                </select>
-            </div>
-            <button type="button" id="upload-button" class="button" onclick="uploadFiles()">Upload File(s)</button>
-        </form>
+        <!-- Removed upload form since we have a dedicated upload page -->
         <div class="info-cards">
             <div class="server-info-container">
                 <div class="card-title">Storage Usage</div>
@@ -681,52 +665,7 @@
             showDownloadFilesButton(); // on init determine if should show download files button
         });
 
-        function uploadFiles() {
-            var input = document.getElementById("files");
-            if (!input.files || input.files.length === 0) {
-                alert("Please select at least one file to upload.");
-                return;
-            }
-
-            var formData = new FormData();
-
-            // Append each selected file to the FormData object
-            for (var i = 0; i < input.files.length; i++) {
-                formData.append("files", input.files[i]);
-            }
-
-            // Add the expiry option
-            var expirySelect = document.getElementById("expiryOption");
-            formData.append("expiryOption", expirySelect.value);
-
-            var uploadButton = document.getElementById("upload-button");
-            uploadButton.disabled = true;
-            uploadButton.textContent = "Uploading...";
-
-            fetch("/File/CreateDoc", {
-                method: "POST",
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.text().then(text => { throw new Error(text) });
-                }
-                return response.text();
-            })
-            .then(result => {
-                console.log("Upload successful:", result);
-                setTimeout(() => window.location.reload(), 500);
-            })
-            .catch(error => {
-                console.error("Upload failed:", error);
-                alert("Upload failed: " + error.message);
-            })
-            .finally(() => {
-                uploadButton.disabled = false;
-                uploadButton.textContent = "Upload File(s)";
-                input.value = ""; // Clear the file input
-            });
-        }
+        // Upload function removed - now using dedicated Upload page
 
         // Get the input element and add an event listener for input events
         document.getElementById("searchInput").addEventListener("input", function () {
