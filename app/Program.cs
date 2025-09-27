@@ -50,6 +50,20 @@ builder.Services.AddSingleton<IUserService, UserService>();
 // Register MIME validation service as singleton
 builder.Services.AddSingleton<IMimeValidationService, MimeValidationService>();
 
+// Configure CORS for OAuth communication
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Register HttpClient Factory for OAuth operations
+builder.Services.AddHttpClient("GoogleOAuth");
+
 builder.Services.AddHangfire(config => config
     .UseMemoryStorage()
     .UseConsole());
@@ -156,6 +170,9 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    // Use CORS in development
+    app.UseCors("AllowAll");
+
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {

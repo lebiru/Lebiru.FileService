@@ -34,6 +34,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **Bulk Operations**: 🗑️ Support for operations like "Delete All Files" with proper cleanup.
 - **File Sharing**: 🔗 Share button to easily copy file viewing links to clipboard.
 - **In-Browser Text Viewing**: 📄 Text files displayed in browser with syntax highlighting and line numbers.
+- **External File Fetching**: 🌐 Fetch files from external sources (FTP, SFTP, HTTP/HTTPS, WebDAV, Network Shares).
 
 ## Technologies Used
 
@@ -98,6 +99,17 @@ The API documentation is available through Swagger. Once the application is runn
 - **Authentication**: All access requires valid credentials with appropriate role permissions
 - **MIME Type Validation**: Both client-side and server-side validation prevents upload of potentially dangerous files
 - **File Extension Filtering**: Blocks known dangerous file extensions (.exe, .bat, .cmd, etc.)
+
+### External File Fetching
+
+The application supports fetching files from various external sources:
+
+- **Multiple Source Types**: Connect to FTP, SFTP, HTTP/HTTPS, WebDAV, and Network Shares
+- **Scheduled Fetching**: Configure automatic fetching at regular intervals
+- **Connection Testing**: Test connections before saving fetch sources
+- **Fetch Activity Tracking**: Monitor fetch operations with detailed logs
+- **File Filtering**: Specify patterns to fetch only relevant files
+- **Post-Fetch Actions**: Optionally delete files from source after successful fetch
 - **Role-Based Access**: Different permissions for Admin, Contributor, and Viewer roles
 - **File Ownership**: Users can only modify or delete their own files unless they have Admin privileges
 - **Data Validation**: Input validation throughout the application prevents injection attacks

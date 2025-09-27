@@ -1,0 +1,90 @@
+@{
+    ViewData["Title"] = "Gmail OAuth Result";
+    Layout = "_Layout";
+}
+
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-body text-center">
+            @if (Model)
+            {
+                <div class="text-success mb-4">
+                    <i class="fas fa-check-circle fa-5x"></i>
+                </div>
+                <h2 class="card-title">Authentication Successful</h2>
+                <p class="card-text">
+                    You have successfully connected your Gmail account.
+                    You can now close this window and return to the fetch source configuration.
+                </p>
+            }
+            else
+            {
+                <div class="text-danger mb-4">
+                    <i class="fas fa-times-circle fa-5x"></i>
+                </div>
+                <h2 class="card-title">Authentication Failed</h2>
+                <p class="card-text">
+                    @if (!string.IsNullOrEmpty(ViewBag.Error))
+                    {
+                        @ViewBag.Error
+                    }
+                    else
+                    {
+                        <span>Failed to authenticate with Gmail. Please try again.</span>
+                    }
+                </p>
+            }
+        </div>
+        <div class="card-footer text-center">
+            <button type="button" class="btn btn-primary" onclick="window.close();">Close Window</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Notify the parent window that the OAuth flow is complete
+        $(function() {
+            // Attempt to notify the parent window via postMessage
+            try {
+                if (window.opener) {
+                    const message = @Json.Serialize(Model) 
+                        ? { type: 'oauth_success' } 
+                        : { type: 'oauth_error', message: '@(ViewBag.Error ?? "Authentication failed")' };
+                    
+                    // Send message to parent window - use document.location.origin for same-origin policy
+                    window.opener.postMessage(message, '*');
+                    console.log("Message sent to parent window:", message);
+                }
+            } catch (e) {
+                console.error("Error sending message to parent:", e);
+            }
+            
+            // Create a visible countdown for user
+            let secondsLeft = 5;
+            const countdownEl = document.createElement('p');
+            countdownEl.className = 'text-muted mt-2';
+            countdownEl.innerHTML = `This window will close automatically in ${secondsLeft} seconds...`;
+            document.querySelector('.card-footer').appendChild(countdownEl);
+            
+            // Update countdown and auto-close
+            const countdown = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft <= 0) {
+                    clearInterval(countdown);
+                    window.close();
+                } else {
+                    countdownEl.innerHTML = `This window will close automatically in ${secondsLeft} seconds...`;
+                }
+            }, 1000);
+            
+            // Also set a backup timer in case the interval doesn't work
+            setTimeout(function() {
+                window.close();
+            }, 5500);
+            
+            // Make the close button more prominent
+            document.querySelector('.btn-primary').classList.add('btn-lg', 'px-5');
+        });
+    </script>
+}
