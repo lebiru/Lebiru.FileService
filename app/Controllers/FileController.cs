@@ -1107,7 +1107,7 @@ namespace Lebiru.FileService.Controllers
             var model = new FetchSourceModel
             {
                 Name = Request.Form["Name"].ToString(),
-                Type = Request.Form["Type"].ToString(),
+                Type = Request.Form["Type"].ToString()?.Trim() ?? string.Empty,
                 // Make ServerUrl conditional for Gmail type
                 ServerUrl = Request.Form["Type"] == "Gmail" ? "gmail.googleapis.com" : Request.Form["ServerUrl"].ToString(),
                 Username = Request.Form["Username"].ToString(),
@@ -1338,6 +1338,7 @@ namespace Lebiru.FileService.Controllers
         [HttpPost("TestFetchConnection")]
         public async Task<IActionResult> TestFetchConnection(string? fetchSourceId = null)
         {
+            _logger.LogInformation("TestFetchConnection called with fetchSourceId: {FetchSourceId}", fetchSourceId);
             FetchSourceModel source = new FetchSourceModel();
 
             // If fetchSourceId is a GUID, look for an existing source
@@ -1360,11 +1361,23 @@ namespace Lebiru.FileService.Controllers
                 // Otherwise, bind from form data for a new source being tested
                 try
                 {
+                    _logger.LogInformation("Binding source from form data");
+
+                    // Log form data for debugging (excluding sensitive fields)
+                    if (Request.Form.TryGetValue("Type", out var typeValue))
+                    {
+                        _logger.LogInformation("Form contains Type value: '{Type}'", typeValue.ToString());
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Form does not contain Type field");
+                    }
+
                     // Create a model from form data
                     source = new FetchSourceModel
                     {
                         Name = Request.Form["Name"].ToString() ?? string.Empty,
-                        Type = Request.Form["Type"].ToString() ?? string.Empty,
+                        Type = Request.Form["Type"].ToString() ?? "Gmail", // Default to Gmail if empty
                         ServerUrl = Request.Form["ServerUrl"].ToString() ?? string.Empty,
                         Username = Request.Form["Username"].ToString(),
                         Password = Request.Form["Password"].ToString(),
@@ -1396,21 +1409,31 @@ namespace Lebiru.FileService.Controllers
             // Test the connection based on the type
             try
             {
-                switch (source.Type)
+                // Log detailed information about the source being tested
+                _logger.LogInformation("Testing connection for source: ID={Id}, Name={Name}, Type={Type}",
+                    source.Id, source.Name, source.Type);
+
+                // Dump request form for debugging
+                _logger.LogInformation("Request form data: {FormData}",
+                    string.Join(", ", Request.Form.Keys.Select(k => $"{k}={Request.Form[k]}")));
+
+                // Since we only support Gmail currently, if Type is empty, assume Gmail
+                if (string.IsNullOrEmpty(source.Type))
                 {
-                    case "Gmail":
-                        return await TestGmailConnection(source);
-                    case "FTP":
-                        return TestFtpConnection(source);
-                    case "SFTP":
-                        return Json(new { success = false, message = "SFTP connection testing not implemented yet." });
-                    case "HTTP":
-                    case "WebDAV":
-                        return TestHttpConnection(source);
-                    case "NetworkShare":
-                        return Json(new { success = false, message = "Network share testing not implemented yet." });
-                    default:
-                        return Json(new { success = false, message = "Unknown source type." });
+                    _logger.LogWarning("Source type is empty, assuming Gmail");
+                    source.Type = "Gmail";
+                }
+
+                // Currently only Gmail is supported
+                if (source.Type.Trim().Equals("Gmail", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Gmail source detected, testing connection...");
+                    return await TestGmailConnection(source);
+                }
+                else
+                {
+                    _logger.LogWarning("Attempted to test unsupported source type: {Type}", source.Type);
+                    return Json(new { success = false, message = $"Source type '{source.Type}' is not supported. Only Gmail fetch sources are currently supported." });
                 }
             }
             catch (Exception ex)
@@ -1865,35 +1888,22 @@ namespace Lebiru.FileService.Controllers
                 AddFetchActivity(activity);
 
                 // Execute the fetch based on the source type
-                switch (source.Type)
+                if (source.Type == "Gmail")
                 {
-                    case "Gmail":
-                        await FetchFromGmail(source, activity);
-                        break;
-                    case "FTP":
-                        FetchFromFtp(source, activity);
-                        break;
-                    case "SFTP":
-                        activity.Status = FetchStatus.Failed;
-                        activity.Message = "SFTP fetching not implemented yet";
-                        break;
-                    case "HTTP":
-                    case "WebDAV":
-                        FetchFromHttp(source, activity);
-                        break;
-                    case "NetworkShare":
-                        activity.Status = FetchStatus.Failed;
-                        activity.Message = "Network share fetching not implemented yet";
-                        break;
-                    default:
-                        activity.Status = FetchStatus.Failed;
-                        activity.Message = "Unknown source type";
-                        break;
+                    await FetchFromGmail(source, activity);
+                }
+                else
+                {
+                    activity.Status = FetchStatus.Failed;
+                    activity.Timestamp = DateTime.UtcNow;
+                    activity.Message = "Only Gmail fetch sources are currently supported";
+                    _logger.LogWarning("Attempted to fetch from unsupported source type: {Type}", source.Type);
                 }
             }
             catch (Exception ex)
             {
                 activity.Status = FetchStatus.Failed;
+                activity.Timestamp = DateTime.UtcNow;
                 activity.Message = $"Error: {ex.Message}";
                 _logger.LogError(ex, "Error fetching from {Type} source {Name}", source.Type, source.Name);
             }
@@ -1904,6 +1914,8 @@ namespace Lebiru.FileService.Controllers
                 {
                     activity.Status = FetchStatus.Failed;
                     activity.Message = "Fetch did not complete properly";
+                    // Set a new timestamp for the final status to ensure chronological order
+                    activity.Timestamp = DateTime.UtcNow;
                 }
 
                 // Update the source's last fetch time and count
@@ -1925,6 +1937,7 @@ namespace Lebiru.FileService.Controllers
         {
             // TODO: Implement FTP fetching
             activity.Status = FetchStatus.Success;
+            activity.Timestamp = DateTime.UtcNow;
             activity.Message = "FTP fetching simulation successful";
             activity.FetchedFileCount = 0;
         }
@@ -1938,6 +1951,7 @@ namespace Lebiru.FileService.Controllers
         {
             // TODO: Implement HTTP fetching
             activity.Status = FetchStatus.Success;
+            activity.Timestamp = DateTime.UtcNow;
             activity.Message = "HTTP fetching simulation successful";
             activity.FetchedFileCount = 0;
         }
@@ -1986,11 +2000,13 @@ namespace Lebiru.FileService.Controllers
                 }
 
                 // Make a simple call to Gmail API to test the connection
+                _logger.LogInformation("Making Gmail API request to test connection...");
                 var response = await client.GetAsync("https://www.googleapis.com/gmail/v1/users/me/profile");
 
                 // Get detailed response content for debugging
                 var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Gmail API response code: {StatusCode}", response.StatusCode);
+                _logger.LogInformation("Gmail API response code: {StatusCode}, Content length: {ContentLength}",
+                    response.StatusCode, responseContent.Length);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -2132,6 +2148,7 @@ namespace Lebiru.FileService.Controllers
                 if (string.IsNullOrEmpty(source.OAuthAccessToken) || string.IsNullOrEmpty(source.OAuthRefreshToken))
                 {
                     activity.Status = FetchStatus.Failed;
+                    activity.Timestamp = DateTime.UtcNow;
                     activity.Message = "OAuth tokens are missing. Please re-authorize the Gmail account.";
                     return;
                 }
@@ -2168,11 +2185,13 @@ namespace Lebiru.FileService.Controllers
                     if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                     {
                         activity.Status = FetchStatus.Failed;
+                        activity.Timestamp = DateTime.UtcNow;
                         activity.Message = "Gmail authorization expired. Please re-authorize the account.";
                         return;
                     }
 
                     activity.Status = FetchStatus.Failed;
+                    activity.Timestamp = DateTime.UtcNow;
                     activity.Message = $"Gmail API error: {response.StatusCode}";
                     return;
                 }
@@ -2186,6 +2205,7 @@ namespace Lebiru.FileService.Controllers
                 {
                     _logger.LogInformation("No emails found matching criteria for source {SourceId}", source.Id);
                     activity.Status = FetchStatus.Success;
+                    activity.Timestamp = DateTime.UtcNow;
                     activity.Message = "No matching emails found.";
                     activity.FetchedFileCount = 0;
                     return;
@@ -2239,6 +2259,7 @@ namespace Lebiru.FileService.Controllers
                 }
 
                 activity.Status = FetchStatus.Success;
+                activity.Timestamp = DateTime.UtcNow;
                 activity.Message = $"Successfully fetched {activity.FetchedFileCount} files from Gmail";
                 _logger.LogInformation("Gmail fetch completed for {SourceId}: {FileCount} files fetched",
                     source.Id, activity.FetchedFileCount);
@@ -2246,6 +2267,7 @@ namespace Lebiru.FileService.Controllers
             catch (Exception ex)
             {
                 activity.Status = FetchStatus.Failed;
+                activity.Timestamp = DateTime.UtcNow;
                 activity.Message = $"Gmail fetch failed: {ex.Message}";
                 _logger.LogError(ex, "Error during Gmail fetch for source {SourceId}", source.Id);
             }

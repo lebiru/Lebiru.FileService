@@ -436,21 +436,57 @@
                 e.preventDefault();
                 
                 // Get form data
-                var formData = $('form').serialize();
+                var formData = new FormData($('form')[0]);
                 var button = $(this);
+                
+                // Ensure the Type value is set
+                var sourceType = $("#Type").val();
+                console.log("Source Type:", sourceType);
+                
+                // Create a simple object for the AJAX request with explicit Type set
+                var postData = {
+                    Type: "Gmail", // Explicitly set to Gmail since that's the only supported type
+                    Name: $("#Name").val() || "Test connection",
+                    ServerUrl: $("#ServerUrl").val() || "gmail.googleapis.com",
+                    Username: $("#Username").val(),
+                    Password: $("#Password").val(),
+                    EmailSearchQuery: $("#EmailSearchQuery").val(),
+                    EmailAgeInDays: $("#EmailAgeInDays").val() || "30",
+                    OAuthAccessToken: $("#OAuthAccessToken").val(),
+                    OAuthRefreshToken: $("#OAuthRefreshToken").val()
+                };
+                
+                // Log the data being sent for debugging
+                console.log("Sending test request with data:", JSON.stringify(postData));
                 
                 // Disable button and show spinner
                 button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing...');
                 
                 // Send AJAX request to test the connection
-                $.post('@Url.Action("TestFetchConnection", "File")', formData)
+                $.ajax({
+                    url: '@Url.Action("TestFetchConnection", "File")',
+                    type: 'POST',
+                    contentType: 'application/x-www-form-urlencoded',
+                    data: postData,
+                    dataType: 'json'
+                })
                     .done(function(data) {
                         if (data.success) {
                             // Show success notification
-                            showNotification('success', 'Connection test successful!');
+                            showNotification('success', data.message || 'Connection test successful!');
                         } else {
-                            // Show error notification
-                            showNotification('danger', data.message || 'Connection test failed.');
+                            // Show error notification with more details if available
+                            var errorMsg = data.message || 'Connection test failed.';
+                            if (data.details) {
+                                console.error('Connection test error details:', data.details);
+                            }
+                            
+                            // If re-authentication is required, show the authorize button
+                            if (data.requireReauth) {
+                                showNotification('warning', errorMsg + ' <a href="@Url.Action("GmailOAuth", "File")" class="btn btn-sm btn-primary ml-2">Authorize with Gmail</a>');
+                            } else {
+                                showNotification('danger', errorMsg);
+                            }
                         }
                     })
                     .fail(function() {

@@ -140,8 +140,8 @@
                             <tr>
                                 <td>@activity.FetchSourceName</td>
                                 <td>
-                                    <span title="@activity.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")">
-                                        @activity.Timestamp.ToShortDateString()
+                                    <span title="@activity.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fffffff")">
+                                        @activity.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")
                                     </span>
                                 </td>
                                 <td>
@@ -222,14 +222,18 @@
                 button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing');
                 
                 // Send AJAX request to test the connection
-                $.post('@Url.Action("TestFetchConnection", "File")', { fetchSourceId: sourceId })
+                $.post('@Url.Action("TestFetchConnection", "File")', { fetchSourceId: sourceId }, null, 'json')
                     .done(function(data) {
                         if (data.success) {
                             // Show success notification
-                            showNotification('success', 'Connection test successful!');
+                            showNotification('success', data.message || 'Connection test successful!');
                         } else {
-                            // Show error notification
-                            showNotification('danger', data.message || 'Connection test failed.');
+                            // Show error notification with more details if available
+                            var errorMsg = data.message || 'Connection test failed.';
+                            if (data.details) {
+                                console.error('Connection test error details:', data.details);
+                            }
+                            showNotification('danger', errorMsg);
                         }
                     })
                     .fail(function() {
