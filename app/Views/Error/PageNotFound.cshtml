@@ -1,0 +1,60 @@
+@{
+    ViewData["Title"] = "Page Not Found";
+    Layout = "_Layout";
+}
+
+<div class="container text-center mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="error-template">
+                <h1 class="display-1">404</h1>
+                <h2>Oops! Page Not Found</h2>
+                <div class="error-details mt-3 mb-4">
+                    <p>Sorry, the page you're looking for doesn't exist or has been moved.</p>
+                    @if (!string.IsNullOrEmpty(ViewBag.OriginalPath))
+                    {
+                        <p>The requested URL <code>@ViewBag.OriginalPath</code> was not found on this server.</p>
+                    }
+                </div>
+                <div class="error-actions">
+                    <a href="/File/Home" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home"></i> Take Me Home
+                    </a>
+                    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-lg ml-2">
+                        <i class="fas fa-arrow-left"></i> Go Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-template {
+        padding: 40px 15px;
+    }
+    
+    .error-template h1 {
+        color: #e74c3c;
+        font-size: 8rem;
+        margin-bottom: 0;
+    }
+    
+    .error-template h2 {
+        margin-bottom: 30px;
+    }
+    
+    .error-actions {
+        margin-top: 30px;
+        margin-bottom: 15px;
+    }
+    
+    body.dark-mode .error-template h1 {
+        color: #e67e22;
+    }
+    
+    body.dark-mode .error-template code {
+        color: #e67e22;
+        background-color: #2c3e50;
+    }
+</style>
