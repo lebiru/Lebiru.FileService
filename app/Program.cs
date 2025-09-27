@@ -199,11 +199,27 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseSession();
 
+// Configure custom error pages
+app.UseStatusCodePagesWithReExecute("/Error/{0}");
+app.UseExceptionHandler("/Error/500"); // Handle unhandled exceptions
+
 app.MapControllers();
 // Map health checks to the controller instead of the default endpoint
 app.MapControllerRoute(
     name: "healthcheck",
     pattern: "healthz",
     defaults: new { controller = "HealthCheck", action = "Index" });
+
+// Add conventional routing with a catch-all route at the end
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=File}/{action=Home}/{id?}");
+
+// Map a catch-all route for 404s - must be the last route
+app.MapFallback(context =>
+{
+    context.Response.Redirect("/Error/404");
+    return Task.CompletedTask;
+});
 
 app.Run();

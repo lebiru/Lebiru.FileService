@@ -963,7 +963,7 @@ namespace Lebiru.FileService.Controllers
             // Log the values that were actually stored
             var storedPage = HttpContext.Session.GetInt32("CurrentPage");
             var storedItems = HttpContext.Session.GetInt32("ItemsPerPage");
-            Console.WriteLine($"Session values set: CurrentPage={storedPage}, ItemsPerPage={storedItems}");
+            //Console.WriteLine($"Session values set: CurrentPage={storedPage}, ItemsPerPage={storedItems}");
 
             return Ok(new { success = true, currentPage = storedPage, itemsPerPage = storedItems });
         }
