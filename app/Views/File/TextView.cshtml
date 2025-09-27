@@ -1,0 +1,99 @@
+@model string
+@{
+    ViewData["Title"] = "Text File Viewer";
+    Layout = "_Layout";
+    var fileName = Context.Request.Query["filename"].ToString();
+}
+
+<div class="container mt-3">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="far fa-file-alt me-2"></i> @fileName</h5>
+            <div>
+                <a href="@Url.Action("DownloadFile", "File", new { filename = fileName })" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <pre class="text-file-content p-3 mb-0">@Model</pre>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-file-content {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        max-height: 70vh;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border-radius: 0 0 0.25rem 0.25rem;
+    }
+    
+    body.dark-mode .text-file-content {
+        background-color: #2a2a2a;
+        color: #f8f9fa;
+    }
+    
+    body.dark-mode .card {
+        background-color: #343a40;
+        border-color: #495057;
+    }
+    
+    body.dark-mode .card-header {
+        background-color: #2a2a2a;
+        border-color: #495057;
+        color: #f8f9fa;
+    }
+</style>
+
+<script>
+    // Add line numbers for text files (optional enhancement)
+    document.addEventListener('DOMContentLoaded', function() {
+        const content = document.querySelector('.text-file-content');
+        if (content) {
+            const lines = content.textContent.split('\n');
+            if (lines.length > 5) {  // Only add line numbers for files with more than 5 lines
+                content.innerHTML = lines.map((line, i) => 
+                    `<div class="line"><span class="line-number">${i+1}</span>${line}</div>`
+                ).join('');
+                
+                // Add additional styling
+                document.head.insertAdjacentHTML('beforeend', `
+                    <style>
+                        .text-file-content {
+                            padding: 0 !important;
+                        }
+                        .line {
+                            display: flex;
+                            padding-left: 0;
+                        }
+                        .line:hover {
+                            background-color: ${document.body.classList.contains('dark-mode') ? '#3a3a3a' : '#f0f0f0'};
+                        }
+                        .line-number {
+                            user-select: none;
+                            text-align: right;
+                            color: #999;
+                            padding: 0 10px;
+                            margin-right: 10px;
+                            border-right: 1px solid #ddd;
+                            min-width: 40px;
+                        }
+                        body.dark-mode .line-number {
+                            color: #777;
+                            border-right-color: #444;
+                        }
+                        body.dark-mode .line:hover {
+                            background-color: #3a3a3a;
+                        }
+                    </style>
+                `);
+            }
+        }
+    });
+</script>

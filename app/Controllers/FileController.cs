@@ -44,6 +44,7 @@ namespace Lebiru.FileService.Controllers
         private readonly IApiMetricsService _metricsService;
         private readonly IUserService _userService;
         private readonly IMimeValidationService _mimeValidationService;
+        private readonly ILogger<FileController> _logger;
 
         private static readonly object _fileLock = new object();
 
@@ -87,13 +88,15 @@ namespace Lebiru.FileService.Controllers
         /// <param name="metricsService">The API metrics tracking service</param>
         /// <param name="userService">The user management service</param>
         /// <param name="mimeValidationService">Service for validating file MIME types</param>
+        /// <param name="logger">The logger service</param>
         public FileController(
             CleanupJob cleanupJob,
             IBackgroundJobClient backgroundJobClient,
             IConfiguration configuration,
             IApiMetricsService metricsService,
             IUserService userService,
-            IMimeValidationService mimeValidationService)
+            IMimeValidationService mimeValidationService,
+            ILogger<FileController> logger)
         {
             _cleanupJob = cleanupJob;
             _backgroundJobClient = backgroundJobClient;
@@ -107,6 +110,7 @@ namespace Lebiru.FileService.Controllers
             _metricsService = metricsService ?? throw new ArgumentNullException(nameof(metricsService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _mimeValidationService = mimeValidationService ?? throw new ArgumentNullException(nameof(mimeValidationService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
@@ -354,14 +358,44 @@ namespace Lebiru.FileService.Controllers
             var extension = Path.GetExtension(filePath).ToLowerInvariant();
             return extension switch
             {
+                // Text formats
                 ".txt" => "text/plain",
+                ".log" => "text/plain",
+                ".csv" => "text/csv",
+                ".md" => "text/markdown",
+
+                // HTML formats
                 ".html" => "text/html",
+                ".htm" => "text/html",
+
+                // Image formats
                 ".jpg" => "image/jpeg",
                 ".jpeg" => "image/jpeg",
                 ".png" => "image/png",
                 ".gif" => "image/gif",
                 ".webp" => "image/webp",
+                ".svg" => "image/svg+xml",
+                ".bmp" => "image/bmp",
+
+                // Document formats
                 ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xls" => "application/vnd.ms-excel",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".ppt" => "application/vnd.ms-powerpoint",
+                ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+
+                // Code formats
+                ".js" => "text/javascript",
+                ".json" => "application/json",
+                ".css" => "text/css",
+                ".xml" => "text/xml",
+                ".py" => "text/x-python",
+                ".java" => "text/x-java",
+                ".cs" => "text/x-csharp",
+
+                // Default for unknown types
                 _ => "application/octet-stream"
             };
         }
@@ -380,6 +414,30 @@ namespace Lebiru.FileService.Controllers
                 return NotFound("File not found.");
 
             var mimeType = GetMimeType(filePath);
+            var extension = Path.GetExtension(filename).ToLowerInvariant();
+
+            // For text files, display the content in our custom text viewer
+            if (extension == ".txt" || extension == ".log" || extension == ".csv" || extension == ".md" ||
+                extension == ".js" || extension == ".css" || extension == ".xml" || extension == ".json" ||
+                extension == ".py" || extension == ".java" || extension == ".cs")
+            {
+                try
+                {
+                    // Read file content
+                    string content = System.IO.File.ReadAllText(filePath);
+
+                    // Return our custom TextView view with the content
+                    return View("TextView", content);
+                }
+                catch (Exception ex)
+                {
+                    // If there's an issue (like binary file misidentified as text), 
+                    // fall back to regular file serving
+                    _logger.LogWarning($"Error reading text file {filename}: {ex.Message}");
+                }
+            }
+
+            // For all other files, use PhysicalFile to allow range requests for media files
             return PhysicalFile(filePath, mimeType, enableRangeProcessing: true);
         }
 
