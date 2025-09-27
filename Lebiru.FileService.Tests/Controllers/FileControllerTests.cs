@@ -11,7 +11,7 @@ using Lebiru.FileService.Controllers;
 using Lebiru.FileService.Models;
 using Lebiru.FileService.Services;
 using Hangfire;
-
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Http.Features;
@@ -76,13 +76,15 @@ namespace Lebiru.FileService.Tests.Controllers
                 .Setup(m => m.ValidateFileDetailed(It.IsAny<string>(), It.IsAny<string>()))
                 .Returns((true, "File type is allowed"));
 
+            var loggerMock = new Mock<ILogger<FileController>>();
             _controller = new FileController(
                 cleanupJob,
                 _backgroundJobClientMock.Object,
                 _configMock.Object,
                 _metricsServiceMock.Object,
                 _userServiceMock.Object,
-                mimeValidationServiceMock.Object);
+                mimeValidationServiceMock.Object,
+                loggerMock.Object);
 
             // Setup controller context
             // Set up service provider with all required services
@@ -238,13 +240,15 @@ namespace Lebiru.FileService.Tests.Controllers
                 .Setup(m => m.ValidateFileDetailed(It.IsAny<string>(), It.IsAny<string>()))
                 .Returns((true, "File type is allowed"));
 
+            var loggerMock = new Mock<ILogger<FileController>>();
             var controller = new FileController(
                 cleanupJob,
                 backgroundClient,
                 _configMock.Object,
                 _metricsServiceMock.Object,
                 _userServiceMock.Object,
-                mimeValidationServiceMock.Object);
+                mimeValidationServiceMock.Object,
+                loggerMock.Object);
 
             // Act
             var result = controller.TriggerCleanup() as ObjectResult;

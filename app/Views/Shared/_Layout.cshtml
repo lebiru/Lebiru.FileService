@@ -189,7 +189,7 @@
     <header style="position: sticky; top: 0; z-index: 1020;">
         <nav class="navbar navbar-expand-md navbar-light" style="background-color: #f7f7f7;">
             <div class="container-fluid">
-                <a class="navbar-brand mr-auto" href="/File/Home">Lebiru.FileServer</a>
+                <a class="navbar-brand mr-auto" href="/File/Home">Felix</a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -233,6 +233,10 @@
                     <i class="fas fa-upload"></i>
                     <span class="sidebar-text">Upload File</span>
                 </a>
+                <a href="/File/Fetch" class="sidebar-item">
+                    <i class="fas fa-cloud-download-alt"></i>
+                    <span class="sidebar-text">Fetch</span>
+                </a>
             </div>
             <!-- Sidebar toggle removed as sidebar is now permanently expanded -->
         </div>
@@ -247,11 +251,11 @@
 
     <footer class="border-top footer text-muted footer-bottom">
         <div class="container-fluid footer-container py-3 my-3">
-            &copy; @DateTime.Now.Year - Lebiru.FileServer Version: @ViewContext.HttpContext.Items["Version"] (@ViewContext.HttpContext.Items["GitCommit"])
+            &copy; @DateTime.Now.Year - Felix Version: @ViewContext.HttpContext.Items["Version"] (@ViewContext.HttpContext.Items["GitCommit"])
         </div>
     </footer>
     
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
@@ -263,5 +267,7 @@
             // Sidebar is permanently expanded
         });
     </script>
+    
+    @RenderSection("Scripts", required: false)
 </body>
 </html>

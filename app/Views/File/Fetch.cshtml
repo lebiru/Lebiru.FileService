@@ -1,0 +1,304 @@
+@model Lebiru.FileService.Models.FetchViewModel
+
+@{
+    ViewData["Title"] = "Fetch";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Fetch Sources</h2>
+            <p class="text-muted">Configure and manage your external file sources</p>
+        </div>
+        <div class="col-auto">
+            <a href="@Url.Action("AddFetchSource", "File")" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add New Fetch Source
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
+
+    @if (!Model.FetchSources.Any())
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> You haven't configured any fetch sources yet. 
+            <a href="@Url.Action("AddFetchSource", "File")" class="alert-link">Add your first fetch source</a> to start fetching files from external services.
+        </div>
+    }
+    else
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Your Fetch Sources</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Last Fetch</th>
+                            <th>Files</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var source in Model.FetchSources)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@source.Name</strong>
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">@source.Type</span>
+                                </td>
+                                <td>
+                                    @if (source.IsActive)
+                                    {
+                                        <span class="badge badge-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-secondary">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (source.LastFetchTime.HasValue)
+                                    {
+                                        <span title="@source.LastFetchTime.Value.ToString("yyyy-MM-dd HH:mm:ss")">
+                                            @source.LastFetchTime.Value.ToShortDateString()
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">Never</span>
+                                    }
+                                </td>
+                                <td>
+                                    @(source.LastFetchFileCount ?? 0)
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <form method="post" action="@Url.Action("ExecuteFetch", "File")" style="display: inline;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="fetchSourceId" value="@source.Id" />
+                                            <button type="submit" class="btn btn-outline-primary">
+                                                <i class="fas fa-cloud-download-alt"></i> Fetch Now
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-secondary test-connection-btn" data-id="@source.Id">
+                                            <i class="fas fa-plug"></i> Test
+                                        </button>
+                                        <a href="@Url.Action("EditFetchSource", "File", new { id = source.Id })" class="btn btn-outline-secondary">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger delete-source-btn" data-id="@source.Id" data-name="@source.Name">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                        <form method="post" action="@Url.Action("DeleteFetchSource", "File")" style="display:none;" class="direct-delete-form">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@source.Id" />
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Recent Activity</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Files</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var activity in Model.LatestActivities)
+                        {
+                            <tr>
+                                <td>@activity.FetchSourceName</td>
+                                <td>
+                                    <span title="@activity.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")">
+                                        @activity.Timestamp.ToShortDateString()
+                                    </span>
+                                </td>
+                                <td>
+                                    @switch (activity.Status)
+                                    {
+                                        case Lebiru.FileService.Models.FetchStatus.Success:
+                                            <span class="badge badge-success">Success</span>
+                                            break;
+                                        case Lebiru.FileService.Models.FetchStatus.Failed:
+                                            <span class="badge badge-danger">Failed</span>
+                                            break;
+                                        case Lebiru.FileService.Models.FetchStatus.InProgress:
+                                            <span class="badge badge-warning">In Progress</span>
+                                            break;
+                                        default:
+                                            <span class="badge badge-secondary">Not Executed</span>
+                                            break;
+                                    }
+                                </td>
+                                <td>
+                                    @activity.FetchedFileCount
+                                </td>
+                                <td>
+                                    @activity.Message
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.LatestActivities.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">
+                                    No recent fetch activity
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteSourceModal" tabindex="-1" aria-labelledby="deleteSourceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteSourceModalLabel">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the fetch source "<span id="sourceNameToDelete"></span>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <form id="deleteSourceForm" method="post" action="@Url.Action("DeleteFetchSource", "File")">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="sourceIdToDelete" name="id" value="" />
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function() {
+            // Handle test connection button click
+            $('.test-connection-btn').click(function() {
+                var sourceId = $(this).data('id');
+                var button = $(this);
+                
+                // Disable button and show spinner
+                button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing');
+                
+                // Send AJAX request to test the connection
+                $.post('@Url.Action("TestFetchConnection", "File")', { fetchSourceId: sourceId })
+                    .done(function(data) {
+                        if (data.success) {
+                            // Show success notification
+                            showNotification('success', 'Connection test successful!');
+                        } else {
+                            // Show error notification
+                            showNotification('danger', data.message || 'Connection test failed.');
+                        }
+                    })
+                    .fail(function() {
+                        // Show error notification
+                        showNotification('danger', 'Connection test failed. Please try again later.');
+                    })
+                    .always(function() {
+                        // Re-enable button and restore text
+                        button.prop('disabled', false).html('<i class="fas fa-plug"></i> Test');
+                    });
+            });
+            
+            // The Fetch Now button is now a regular form submit button, so no JS handler needed
+            
+            // Handle delete source button click
+            $('.delete-source-btn').click(function() {
+                var sourceId = $(this).data('id');
+                var sourceName = $(this).data('name');
+                
+                console.log("Delete button clicked for source ID: " + sourceId);
+                
+                // Update modal with source information
+                $('#sourceIdToDelete').val(sourceId);
+                $('#sourceNameToDelete').text(sourceName);
+                
+                // Show the modal
+                $('#deleteSourceModal').modal('show');
+            });
+            
+            // Handle form submission
+            $('#deleteSourceForm').submit(function() {
+                var sourceId = $('#sourceIdToDelete').val();
+                if (!sourceId) {
+                    alert('Error: No source ID provided');
+                    return false;
+                }
+                console.log("Submitting delete form with source ID: " + sourceId);
+                return true;
+            });
+            
+            // Add context menu to delete button
+            $('.delete-source-btn').contextmenu(function(e) {
+                e.preventDefault();
+                var btn = $(this);
+                if (confirm("Are you sure you want to delete '" + btn.data('name') + "'?")) {
+                    // Get the adjacent form and submit it directly
+                    btn.siblings('.direct-delete-form').submit();
+                }
+                return false;
+            });
+            
+            // Function to show notifications
+            function showNotification(type, message) {
+                var alertHtml = 
+                    '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                        message +
+                        '<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
+                            '<span aria-hidden="true">&times;</span>' +
+                        '</button>' +
+                    '</div>';
+                    
+                // Add the alert to the top of the page
+                $('.container').prepend(alertHtml);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(function() {
+                    $('.alert').alert('close');
+                }, 5000);
+            }
+        });
+    </script>
+}

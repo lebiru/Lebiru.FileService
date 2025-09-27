@@ -1,0 +1,486 @@
+@model Lebiru.FileService.Models.FetchSourceModel
+
+@{
+    ViewData["Title"] = "Add Fetch Source";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Add Fetch Source</h2>
+            <p class="text-muted">Configure a new external source for fetching files</p>
+        </div>
+        <div class="col-auto">
+            <a href="@Url.Action("Fetch", "File")" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Fetch Sources
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="@Url.Action("SaveFetchSource", "File")" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                @if (!string.IsNullOrEmpty(Model.Id))
+                {
+                    <input type="hidden" id="Id" name="Id" value="@Model.Id" />
+                }
+                <div class="form-group">
+                    <label for="Name">Name</label>
+                    <input type="text" class="form-control" id="Name" name="Name" required 
+                           value="@Model.Name" placeholder="Enter a descriptive name">
+                    <small class="form-text text-muted">A friendly name to identify this fetch source</small>
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="Type">Source Type</label>
+                    <select class="form-control" id="Type" name="Type" required>
+                        <option value="Gmail" selected>Gmail (OAuth)</option>
+                    </select>
+                    <small class="form-text text-muted">The type of connection to use for fetching files</small>
+                    <span asp-validation-for="Type" class="text-danger"></span>
+                </div>
+
+                <div id="connectionDetails">
+                    <!-- Common fields -->
+                    <div class="form-group">
+                        <label for="ServerUrl">Server URL/Address</label>
+                        <input type="text" class="form-control" id="ServerUrl" name="ServerUrl" 
+                               value="@Model.ServerUrl" placeholder="e.g., ftp.example.com or https://example.com/files">
+                        <small class="form-text text-muted">The URL or address of the remote server</small>
+                        <span asp-validation-for="ServerUrl" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="Username">Username</label>
+                            <input type="text" class="form-control" id="Username" name="Username" 
+                                   value="@Model.Username" placeholder="Username (if required)">
+                            <span asp-validation-for="Username" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group col-md-6">
+                            <label for="Password">Password</label>
+                            <input type="password" class="form-control" id="Password" name="Password" 
+                                   value="@Model.Password" placeholder="Password (if required)">
+                            <small class="form-text text-muted">Passwords are stored encrypted</small>
+                            <span asp-validation-for="Password" class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="RemotePath">Remote Path</label>
+                        <input type="text" class="form-control" id="RemotePath" name="RemotePath" 
+                               value="@Model.RemotePath" placeholder="e.g., /public/files or leave blank for root">
+                        <small class="form-text text-muted">The directory path on the remote server to fetch files from</small>
+                        <span asp-validation-for="RemotePath" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="FilePattern">File Pattern</label>
+                        <input type="text" class="form-control" id="FilePattern" name="FilePattern" 
+                               value="@Model.FilePattern" placeholder="e.g., *.pdf or report_*.xlsx">
+                        <small class="form-text text-muted">Pattern to match files to fetch. Leave blank to fetch all files.</small>
+                        <span asp-validation-for="FilePattern" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="IsRecursive" name="IsRecursive" 
+                                   @(Model.IsRecursive ? "checked" : "")>
+                            <label class="custom-control-label" for="IsRecursive">Search Subdirectories</label>
+                            <small class="form-text text-muted ml-4">Enable to fetch files from subdirectories as well</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="DeleteAfterFetch" name="DeleteAfterFetch" 
+                                   @(Model.DeleteAfterFetch ? "checked" : "")>
+                            <label class="custom-control-label" for="DeleteAfterFetch">Delete After Fetch</label>
+                            <small class="form-text text-muted ml-4">Enable to delete files from the source after successful fetch</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="FetchIntervalMinutes">Fetch Interval (minutes)</label>
+                        <input type="number" class="form-control" id="FetchIntervalMinutes" name="FetchIntervalMinutes" 
+                               value="@(Model.FetchIntervalMinutes > 0 ? Model.FetchIntervalMinutes : 60)" min="5" max="10080">
+                        <small class="form-text text-muted">
+                            How often to check for new files (in minutes):<br>
+                            • 5-59: Every X minutes<br>
+                            • 60-1439: Every X hours<br>
+                            • 1440+: Every X days (max 7 days/10080 minutes)
+                        </small>
+                        <span asp-validation-for="FetchIntervalMinutes" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="IsActive" name="IsActive" 
+                                   @(Model.IsActive ? "checked" : "")>
+                            <label class="custom-control-label" for="IsActive">Enable Automatic Fetching</label>
+                            <small class="form-text text-muted ml-4">Enable to allow scheduled automatic fetching</small>
+                        </div>
+                    </div>
+
+                    <!-- Protocol-specific options will be shown/hidden via JavaScript -->
+                    <div id="ftpOptions" class="protocol-options" style="display: none;">
+                        <h5 class="mt-4 mb-3">FTP Options</h5>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="UsePassiveFtp" name="UsePassiveFtp" 
+                                       @(Model.UsePassiveFtp ? "checked" : "")>
+                                <label class="custom-control-label" for="UsePassiveFtp">Use Passive Mode</label>
+                                <small class="form-text text-muted ml-4">Enable for better compatibility with firewalls</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="FtpPort">FTP Port</label>
+                            <input type="number" class="form-control" id="FtpPort" name="FtpPort" 
+                                   value="@(Model.Port > 0 ? Model.Port : 21)" min="1" max="65535">
+                            <small class="form-text text-muted">Default is 21 for FTP</small>
+                        </div>
+                    </div>
+
+                    <div id="sftpOptions" class="protocol-options" style="display: none;">
+                        <h5 class="mt-4 mb-3">SFTP Options</h5>
+                        <div class="form-group">
+                            <label for="SftpPort">SFTP Port</label>
+                            <input type="number" class="form-control" id="SftpPort" name="Port" 
+                                   value="@(Model.Port > 0 ? Model.Port : 22)" min="1" max="65535">
+                            <small class="form-text text-muted">Default is 22 for SFTP</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="PrivateKeyPath">Private Key Path (Optional)</label>
+                            <input type="text" class="form-control" id="PrivateKeyPath" name="PrivateKeyPath" 
+                                   value="@Model.PrivateKeyPath" placeholder="Path to private key file">
+                            <small class="form-text text-muted">Leave blank to use password authentication</small>
+                        </div>
+                    </div>
+
+                    <div id="httpOptions" class="protocol-options" style="display: none;">
+                        <h5 class="mt-4 mb-3">HTTP/HTTPS Options</h5>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="IgnoreSslErrors" name="IgnoreSslErrors" 
+                                       @(Model.IgnoreSslErrors ? "checked" : "")>
+                                <label class="custom-control-label" for="IgnoreSslErrors">Ignore SSL Certificate Errors</label>
+                                <small class="form-text text-muted ml-4">Not recommended for production use</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="gmailOptions" class="protocol-options" style="display: none;">
+                        <h5 class="mt-4 mb-3">Gmail Options</h5>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 
+                            To use Gmail as a fetch source, you need to authenticate with your Google account.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="EmailSearchQuery">Email Search Query</label>
+                            <input type="text" class="form-control" id="EmailSearchQuery" name="EmailSearchQuery" 
+                                   value="@Model.EmailSearchQuery" placeholder="e.g., has:attachment subject:Report">
+                            <small class="form-text text-muted">Gmail search query to find emails with attachments to fetch</small>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="EmailAgeInDays">Email Age Limit (days)</label>
+                                <input type="number" class="form-control" id="EmailAgeInDays" name="EmailAgeInDays" 
+                                       value="@Model.EmailAgeInDays" min="1" max="365">
+                                <small class="form-text text-muted">Only fetch emails newer than this many days</small>
+                            </div>
+
+                            <div class="form-group col-md-6">
+                                <label for="AttachmentTypes">Attachment Types</label>
+                                <input type="text" class="form-control" id="AttachmentTypes" name="AttachmentTypes" 
+                                       value="@Model.AttachmentTypes" placeholder="pdf,docx,xlsx">
+                                <small class="form-text text-muted">Comma-separated list of file extensions to download</small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="MarkAsRead" name="MarkAsRead" 
+                                       @(Model.MarkAsRead ? "checked" : "")>
+                                <label class="custom-control-label" for="MarkAsRead">Mark emails as read after fetching</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="ArchiveAfterFetch" name="ArchiveAfterFetch" 
+                                       @(Model.ArchiveAfterFetch ? "checked" : "")>
+                                <label class="custom-control-label" for="ArchiveAfterFetch">Archive emails after fetching</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="IncludeEmailBody" name="IncludeEmailBody" 
+                                       @(Model.IncludeEmailBody ? "checked" : "")>
+                                <label class="custom-control-label" for="IncludeEmailBody">Include email body as text file</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="button" id="gmailOAuthButton" class="btn btn-danger">
+                                <i class="fab fa-google"></i> Authorize with Gmail
+                            </button>
+                            <div id="gmailOAuthStatus"></div>
+                            <small class="form-text text-muted mt-2">You'll be redirected to Google to authorize this application to access your Gmail account.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Fetch Source
+                    </button>
+                    <button type="button" id="testConnectionBtn" class="btn btn-outline-info ml-2">
+                        <i class="fas fa-plug"></i> Test Connection
+                    </button>
+                    <a href="@Url.Action("Fetch", "File")" class="btn btn-outline-secondary ml-2">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function() {
+            // Handle form submission to ensure proper content type
+            $('form').on('submit', function(e) {
+                // Add custom headers to form submission
+                $(this).attr('enctype', 'multipart/form-data');
+                return true;
+            });
+            
+            // Hide all protocol options initially
+            $('.protocol-options').hide();
+            
+            // Show Gmail options by default
+            $('#gmailOptions').show();
+            // Hide common server fields that are not needed for Gmail
+            $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').hide();
+            $('#FilePattern').closest('.form-group').hide();
+            $('#IsRecursive').closest('.form-group').hide();
+            
+            // Show/hide protocol-specific options based on selected type
+            $('#Type').change(function() {
+                // Hide all protocol options
+                $('.protocol-options').hide();
+                
+                // Show the relevant options based on selected type
+                var selectedType = $(this).val();
+                switch (selectedType) {
+                    case 'Gmail':
+                        $('#gmailOptions').show();
+                        // Hide common server fields that are not needed for Gmail
+                        $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').hide();
+                        $('#FilePattern').closest('.form-group').hide();
+                        $('#IsRecursive').closest('.form-group').hide();
+                        break;
+                    case 'FTP':
+                        $('#ftpOptions').show();
+                        // Show common server fields
+                        $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').show();
+                        $('#FilePattern').closest('.form-group').show();
+                        $('#IsRecursive').closest('.form-group').show();
+                        break;
+                    case 'SFTP':
+                        $('#sftpOptions').show();
+                        // Show common server fields
+                        $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').show();
+                        $('#FilePattern').closest('.form-group').show();
+                        $('#IsRecursive').closest('.form-group').show();
+                        break;
+                    case 'HTTP':
+                    case 'WebDAV':
+                        $('#httpOptions').show();
+                        // Show common server fields
+                        $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').show();
+                        $('#FilePattern').closest('.form-group').show();
+                        $('#IsRecursive').closest('.form-group').show();
+                        break;
+                    default:
+                        // Show all common fields
+                        $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').show();
+                        $('#FilePattern').closest('.form-group').show();
+                        $('#IsRecursive').closest('.form-group').show();
+                }
+            }).trigger('change'); // Trigger on page load
+            
+            // Handle Gmail OAuth button
+            $('#gmailOAuthButton').click(function(e) {
+                e.preventDefault();
+                
+                // Open Google OAuth authorization in a popup window
+                var width = 600;
+                var height = 700;
+                var left = (screen.width/2)-(width/2);
+                var top = (screen.height/2)-(height/2);
+                
+                var authWindow = window.open('@Url.Action("GmailOAuth", "File")', 'gmailOAuth', 
+                    'width='+width+',height='+height+',top='+top+',left='+left);
+                
+                // Create hidden fields for OAuth tokens if they don't exist
+                if ($('#OAuthAccessToken').length === 0) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        id: 'OAuthAccessToken',
+                        name: 'OAuthAccessToken'
+                    }).appendTo('form');
+                    
+                    $('<input>').attr({
+                        type: 'hidden',
+                        id: 'OAuthRefreshToken',
+                        name: 'OAuthRefreshToken'
+                    }).appendTo('form');
+                }
+                
+                // Show a notification that authentication is in progress
+                showNotification('info', 'Gmail authentication in progress... Please complete the process in the popup window.');
+                
+                // Set a flag to check OAuth status when we receive a postMessage or after a timeout
+                let oauthCompletedOrTimedOut = false;
+                
+                // Listen for messages from the popup (modern approach, avoids COOP issues)
+                window.addEventListener('message', function(event) {
+                    console.log("Received message:", event.data);
+                    
+                    // Check if it's our OAuth message
+                    if (event.data && (event.data.type === 'oauth_success' || event.data.type === 'oauth_error')) {
+                        if (!oauthCompletedOrTimedOut) {
+                            oauthCompletedOrTimedOut = true;
+                            
+                            // Give a moment for session to be properly set
+                            setTimeout(function() {
+                                checkOAuthStatus();
+                            }, 1000);
+                        }
+                    }
+                });
+                
+                // Fallback: Check if window closed (may cause COOP errors but we'll catch them)
+                // This is a backup in case postMessage doesn't work
+                var pollTimer = window.setInterval(function() {
+                    // If we already handled OAuth completion via postMessage, stop polling
+                    if (oauthCompletedOrTimedOut) {
+                        window.clearInterval(pollTimer);
+                        return;
+                    }
+                    
+                    try {
+                        // This might throw a COOP error - that's OK
+                        if (authWindow.closed) {
+                            if (!oauthCompletedOrTimedOut) {
+                                oauthCompletedOrTimedOut = true;
+                                window.clearInterval(pollTimer);
+                                // Check if token was stored in session
+                                setTimeout(function() {
+                                    checkOAuthStatus();
+                                }, 1000);
+                            }
+                        }
+                    } catch(e) {
+                        console.log("COOP restriction prevented checking window.closed - this is normal");
+                    }
+                }, 1000);
+                
+                // Fallback timeout: If after 3 minutes we haven't detected completion, check anyway
+                setTimeout(function() {
+                    if (!oauthCompletedOrTimedOut) {
+                        oauthCompletedOrTimedOut = true;
+                        window.clearInterval(pollTimer);
+                        checkOAuthStatus();
+                    }
+                }, 180000); // 3 minutes
+            });
+            
+            function checkOAuthStatus() {
+                $.ajax({
+                    url: '@Url.Action("GetGmailOAuthStatus", "File")',
+                    type: 'GET',
+                    success: function(data) {
+                        if (data.success) {
+                            // Update UI to show connected status
+                            $('#gmailOAuthButton').html('<i class="fas fa-check"></i> Connected to Gmail')
+                                .removeClass('btn-danger')
+                                .addClass('btn-success');
+                                
+                            // Store OAuth tokens in hidden fields
+                            $('#OAuthAccessToken').val(data.accessToken);
+                            $('#OAuthRefreshToken').val(data.refreshToken);
+                            
+                            // Show success notification
+                            showNotification('success', 'Successfully connected to Gmail!');
+                        } else {
+                            showNotification('danger', 'Gmail authentication failed.');
+                        }
+                    },
+                    error: function() {
+                        showNotification('danger', 'Failed to verify Gmail connection status.');
+                    }
+                });
+            }
+            
+            // Handle test connection button
+            $('#testConnectionBtn').click(function(e) {
+                e.preventDefault();
+                
+                // Get form data
+                var formData = $('form').serialize();
+                var button = $(this);
+                
+                // Disable button and show spinner
+                button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing...');
+                
+                // Send AJAX request to test the connection
+                $.post('@Url.Action("TestFetchConnection", "File")', formData)
+                    .done(function(data) {
+                        if (data.success) {
+                            // Show success notification
+                            showNotification('success', 'Connection test successful!');
+                        } else {
+                            // Show error notification
+                            showNotification('danger', data.message || 'Connection test failed.');
+                        }
+                    })
+                    .fail(function() {
+                        // Show error notification
+                        showNotification('danger', 'Connection test failed. Please try again later.');
+                    })
+                    .always(function() {
+                        // Re-enable button and restore text
+                        button.prop('disabled', false).html('<i class="fas fa-plug"></i> Test Connection');
+                    });
+            });
+            
+            // Function to show notifications
+            function showNotification(type, message) {
+                var alertHtml = 
+                    '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                        message +
+                        '<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
+                            '<span aria-hidden="true">&times;</span>' +
+                        '</button>' +
+                    '</div>';
+                    
+                // Add the alert before the form
+                $('.card-body').prepend(alertHtml);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(function() {
+                    $('.alert').alert('close');
+                }, 5000);
+            }
+        });
+    </script>
+}
