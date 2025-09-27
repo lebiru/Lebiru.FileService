@@ -32,6 +32,8 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **API Metrics**: 📈 Track usage metrics (uploads, downloads, deletions) with last update time.
 - **Data Persistence**: 💾 All data (user info, metrics, file info) persisted in app-data directory.
 - **Bulk Operations**: 🗑️ Support for operations like "Delete All Files" with proper cleanup.
+- **File Sharing**: 🔗 Share button to easily copy file viewing links to clipboard.
+- **In-Browser Text Viewing**: 📄 Text files displayed in browser with syntax highlighting and line numbers.
 
 ## Technologies Used
 
@@ -139,8 +141,10 @@ The API documentation is available through Swagger. Once the application is runn
   - Rename files while preserving file extension and ownership
   - See remaining time before file expiry
   - Automatic cleanup of expired files
+  - Share files easily by copying view links to clipboard
   - Monitor file operations through Hangfire dashboard at `/hangfire`
   - "Delete All Files" feature for admins with proper cleanup of all related data
+  - View text files directly in browser with syntax highlighting and line numbers
 - **User Interface**:
   - Permanent sidebar navigation for quick access to all app features
   - Image previews for supported formats (PNG, JPG, GIF, BMP)
@@ -151,6 +155,9 @@ The API documentation is available through Swagger. Once the application is runn
   - API metrics dashboard showing usage statistics
   - Server space usage monitoring
   - Real-time file validation feedback during uploads
+  - Custom error pages that maintain consistent application layout
+  - Share files easily by copying viewing links to clipboard
+  - In-browser text file viewing with syntax highlighting and line numbers
 
 ## Deployment
 
