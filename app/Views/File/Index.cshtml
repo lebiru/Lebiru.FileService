@@ -70,6 +70,11 @@
             max-height: 55px;
         }
 
+        #searchInput {
+            height: 50px;
+            border: 1px solid royalblue;
+        }
+
         .pagination-container {
             display: flex;
             justify-content: flex-start;
@@ -98,20 +103,9 @@
             color: #aaa;
         }
 
-        .search-bar {
-            width: 100%;
-            padding: 15px;
-            margin: 10px 0px;
-            border: 1px solid cornflowerblue;
-            border-radius: 5px;
-        }
+        /* Search bar moved to _Layout.cshtml */
 
-        .button {
-            margin: 10px 0px;
-            display: block;
-            width: 225px;
-            height: 35px;
-        }
+        /* Button styling updated to use Bootstrap classes */
 
         .button-pagination {
             padding: 15px;
@@ -251,7 +245,7 @@
 
         .server-info-container, .file-count-container, .doc-count-container {
             font-size: 14px;
-            padding: 16px;
+            padding: 10px;
             background: var(--bg-accent, white);
             border-radius: 6px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -399,20 +393,7 @@
             height: 75px;
         }
 
-        button#delete-all-files-button {
-            background-color: red;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px 0;
-            line-height: 5px;
-        }
-
-        button#delete-all-files-button:hover {
-            background-color: darkred;
-        }
+        /* Button styling updated to use Bootstrap classes */
 
         .action-link {
             display: inline-block;
@@ -582,23 +563,30 @@
         }
     </style>
 
-    <!-- Search bar -->
-    <input type="text" id="searchInput" class="search-bar" placeholder="Search files...">
+    <!-- Search bar with improved look and feel -->
+    <div class="input-group mb-3" style="max-width: 100%;">
+        <div class="input-group-prepend">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+        </div>
+        <input type="text" id="searchInput" class="form-control" placeholder="Search files..." 
+               aria-label="Search files">
+    </div>
 
-
-    <div style="text-align:left;">
+    <div style="text-align:left; display: flex; gap: 15px; align-items: center; margin-bottom: 15px;">
         <form id="form-download-button" method="post" action="DownloadZip">
-            <button style="display: block;" type="button" id="download-button" class="button"
-                onclick="downloadFiles()">Download Selected File(s)</button>
+            <button type="button" id="download-button" class="btn btn-primary" 
+                onclick="downloadFiles()" disabled>
+                <i class="fas fa-download mr-1"></i> Download Selected
+            </button>
             <input type="hidden" id="filenames" name="filenames" value="" />
         </form>
-        <div style="text-align:left;">
-            @if (User.IsInRole(UserRoles.Admin))
-            {
-                <button type="button" id="delete-all-files-button" class="button"
-                    style="background-color: red; color: white;">Delete All Files</button>
-            }
-        </div>
+        @if (User.IsInRole(UserRoles.Admin))
+        {
+            <button type="button" id="delete-all-files-button" class="btn btn-danger"
+                data-toggle="modal" data-target="#deleteAllModal">
+                <i class="fas fa-trash-alt mr-1"></i> Delete All Files
+            </button>
+        }
     </div>
 
     <!-- Sort controls (top-right, above the table) -->
@@ -637,13 +625,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log("DOM fully loaded, initializing date formatting");
             
-            // Add event listener for the delete all files button
-            const deleteAllFilesButton = document.getElementById('delete-all-files-button');
-            if (deleteAllFilesButton) {
-                deleteAllFilesButton.addEventListener('click', function() {
-                    confirmCleanup();
-                });
-            }
+            // The delete all files button now uses Bootstrap's data-toggle="modal" 
+            // and data-target="#deleteAllModal" instead of direct event handler
         });
 
         // Initialize with values from server-side (set from session)
@@ -664,6 +647,9 @@
                     }
                     currentPage = page;
                     updatePaginationDisplay();
+                    
+                    // Setup checkbox listeners for the newly loaded content
+                    setupCheckboxListeners();
                     
                     // Update browser history without page reload so back/forward work
                     const url = new URL(window.location.href);
@@ -843,6 +829,9 @@
                 // Initialize the download button state
                 showDownloadFilesButton();
                 
+                // Add event listeners to checkboxes for download button state
+                setupCheckboxListeners();
+                
                 // Ensure session is updated with current values
                 fetch('/File/UpdateSession', {
                     method: 'POST',
@@ -938,11 +927,14 @@
                 }
             });
 
-            // Check if jQuery is available, otherwise use vanilla JS
-            if (typeof $ !== 'undefined') {
-                $(downloadButton).prop("disabled", !anyCheckboxChecked);
+            // Disable button if no checkboxes are checked
+            downloadButton.disabled = !anyCheckboxChecked;
+            
+            // Also update visual appearance based on disabled state
+            if (!anyCheckboxChecked) {
+                downloadButton.classList.add('disabled');
             } else {
-                downloadButton.disabled = !anyCheckboxChecked;
+                downloadButton.classList.remove('disabled');
             }
         }
 
@@ -975,79 +967,20 @@
             }
         }
 
-        function confirmCleanup() {
-            // Create or update modal for confirmation
-            let modal = document.getElementById('deleteAllModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'deleteAllModal';
-                modal.className = 'modal fade show';
-                document.body.appendChild(modal);
-            }
-            
-            // Create backdrop first (so it's behind the dialog)
-            let backdrop = document.getElementById('modalBackdrop');
-            if (!backdrop) {
-                backdrop = document.createElement('div');
-                backdrop.id = 'modalBackdrop';
-                backdrop.className = 'modal-backdrop fade show';
-                document.body.appendChild(backdrop);
-            }
-            
-            // Then create the modal (so it's in front of backdrop)
-            modal.innerHTML = `
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header bg-danger text-white">
-                            <h5 class="modal-title">Delete All Files</h5>
-                            <button type="button" class="close" id="close-modal-x">
-                                <span>&times;</span>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            <p>Are you sure you want to delete all files? This action cannot be undone.</p>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" id="cancel-delete-all">
-                                <i class="fas fa-times-circle"></i> No, Cancel
-                            </button>
-                            <button type="button" class="btn btn-danger" id="confirm-delete-all">
-                                <i class="fas fa-trash-alt"></i> Yes, Delete All Files
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Add event listeners to the modal buttons
-            document.getElementById('close-modal-x').addEventListener('click', closeDeleteAllModal);
-            document.getElementById('cancel-delete-all').addEventListener('click', closeDeleteAllModal);
-            document.getElementById('confirm-delete-all').addEventListener('click', executeDeleteAll);
-            
-            // Show modal
-            document.body.classList.add('modal-open');
-            modal.style.display = 'block';
-        }
+        // Modal is now created directly in the HTML structure using Bootstrap
+        // The confirmCleanup and closeDeleteAllModal functions are no longer needed since we use Bootstrap's modal system
         
-        function closeDeleteAllModal() {
-            const modal = document.getElementById('deleteAllModal');
-            const backdrop = document.getElementById('modalBackdrop');
-            
-            if (modal) {
-                modal.style.display = 'none';
-                modal.remove();
+        // Register event handler for confirm delete all button
+        document.addEventListener('DOMContentLoaded', function() {
+            const confirmDeleteBtn = document.getElementById('confirm-delete-all');
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.addEventListener('click', executeDeleteAll);
             }
-            
-            if (backdrop) {
-                backdrop.remove();
-            }
-            
-            document.body.classList.remove('modal-open');
-        }
+        });
         
         function executeDeleteAll() {
-            // Close modal first
-            closeDeleteAllModal();
+            // Close modal first using Bootstrap's modal API
+            $('#deleteAllModal').modal('hide');
             
             // Trigger cleanup
             fetch("/File/TriggerCleanup", {
@@ -1124,6 +1057,23 @@
             }
         }
         
+        // Setup checkbox event listeners for the download button state
+        function setupCheckboxListeners() {
+            // Find all checkboxes in the file list
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            
+            // Add change event listener to each checkbox
+            checkboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', function() {
+                    // Update download button state whenever a checkbox changes
+                    showDownloadFilesButton();
+                });
+            });
+            
+            // Initial state check
+            showDownloadFilesButton();
+        }
+        
         function refreshCurrentPage() {
             // Use current values that are already initialized from session
             // Only use URL params if explicitly provided
@@ -1186,6 +1136,30 @@
 
     </script>
 
+    <!-- Delete All Files Modal -->
+    <div class="modal fade" id="deleteAllModal" tabindex="-1" role="dialog" aria-labelledby="deleteAllModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteAllModalLabel">Delete All Files</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete all files? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times-circle"></i> No, Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete-all">
+                        <i class="fas fa-trash-alt"></i> Yes, Delete All Files
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 
