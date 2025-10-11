@@ -453,7 +453,7 @@
     </style>
 </head>
 
-<body class="@((ViewBag.IsDarkMode ? "dark-mode" : ""))">
+<body class="@((ViewBag.IsDarkMode == true ? "dark-mode" : ""))">
     <h2 style="margin: 15px auto;">Dashboard</h2>
 
     <div class="primary-bar-container">
@@ -580,6 +580,17 @@
             </button>
             <input type="hidden" id="filenames" name="filenames" value="" />
         </form>
+        
+        <button type="button" id="transform-button" class="btn btn-secondary" 
+            onclick="openTransformModal()">
+            <i class="fas fa-magic mr-1"></i> Transform Files
+        </button>
+        
+        <button type="button" id="sync-metadata-button" class="btn btn-info" 
+            onclick="syncFileMetadata()">
+            <i class="fas fa-sync mr-1"></i> Sync Metadata
+        </button>
+        
         @if (User.IsInRole(UserRoles.Admin))
         {
             <button type="button" id="delete-all-files-button" class="btn btn-danger"
@@ -1074,6 +1085,32 @@
             showDownloadFilesButton();
         }
         
+        // Function to sync file metadata with actual files in uploads folder
+        function syncFileMetadata() {
+            fetch('/File/SyncFileMetadata', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`File metadata synced successfully. ${data.addedCount} new files added.`, 'success');
+                    if (data.addedCount > 0) {
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showNotification(`Error syncing file metadata: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error syncing file metadata:', error);
+                showNotification('Error syncing file metadata. See console for details.', 'error');
+            });
+        }
+        
         function refreshCurrentPage() {
             // Use current values that are already initialized from session
             // Only use URL params if explicitly provided
@@ -1134,7 +1171,172 @@
             });
         }
 
+        // Function to sync file metadata with actual files in uploads folder
+        function syncFileMetadata() {
+            showNotification('Syncing file metadata...', 'info');
+            
+            fetch('/File/SyncFileMetadata', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`File metadata synced successfully. ${data.addedCount} new files added.`, 'success');
+                    if (data.addedCount > 0) {
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showNotification(`Error syncing file metadata: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error syncing file metadata:', error);
+                showNotification('Error syncing file metadata. See console for details.', 'error');
+            });
+        }
+
+        // Function to open transform modal
+        function openTransformModal() {
+            // Populate the file list in the transform modal
+            const transformFilesList = document.getElementById('transformFilesList');
+            transformFilesList.innerHTML = '';
+            
+            // Get all files from the table
+            const fileTable = document.querySelector('table tbody');
+            const rows = fileTable.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const filenameCell = row.querySelector('td:nth-child(2)');
+                if (filenameCell) {
+                    const filename = filenameCell.textContent.trim();
+                    const isText = row.querySelector('td:nth-child(4)').textContent.trim().toLowerCase().includes('text');
+                    
+                    // Only include text files for transformation
+                    if (isText) {
+                        const div = document.createElement('div');
+                        div.className = 'form-check';
+                        
+                        const input = document.createElement('input');
+                        input.type = 'checkbox';
+                        input.className = 'form-check-input transform-file-checkbox';
+                        input.id = `transform-${filename}`;
+                        input.value = filename;
+                        
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.htmlFor = `transform-${filename}`;
+                        label.textContent = filename;
+                        
+                        div.appendChild(input);
+                        div.appendChild(label);
+                        transformFilesList.appendChild(div);
+                    }
+                }
+            });
+            
+            $('#transformModal').modal('show');
+        }
+
+        // Handle transform button click
+        document.getElementById('confirm-transform').addEventListener('click', function() {
+            const pattern = document.getElementById('transformPattern').value;
+            const replacement = document.getElementById('transformReplacement').value;
+            
+            if (!pattern) {
+                showNotification('Please enter a regex pattern', 'warning');
+                return;
+            }
+            
+            const selectedFiles = [];
+            document.querySelectorAll('.transform-file-checkbox:checked').forEach(checkbox => {
+                selectedFiles.push(checkbox.value);
+            });
+            
+            if (selectedFiles.length === 0) {
+                showNotification('Please select at least one file to transform', 'warning');
+                return;
+            }
+            
+            showNotification('Transforming files...', 'info');
+            
+            fetch('/Transform/ProcessTransform', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    files: selectedFiles,
+                    pattern: pattern,
+                    replacement: replacement
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`Successfully transformed ${data.transformedCount} files`, 'success');
+                    $('#transformModal').modal('hide');
+                    // Reload the page after a short delay
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(`Error: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error transforming files. See console for details.', 'error');
+            });
+        });
+
     </script>
+
+    <!-- Transform Files Modal -->
+    <div class="modal fade" id="transformModal" tabindex="-1" role="dialog" aria-labelledby="transformModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title" id="transformModalLabel">Transform Files</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="transformPattern">Regex Pattern:</label>
+                        <input type="text" class="form-control" id="transformPattern" 
+                               placeholder="Enter regex pattern (e.g., \b\d{3}-\d{2}-\d{4}\b for SSN)">
+                        <small class="form-text text-muted">
+                            Enter a regular expression pattern to match content in files.
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="transformReplacement">Replacement Text:</label>
+                        <input type="text" class="form-control" id="transformReplacement" 
+                               placeholder="Enter replacement text (e.g., XXX-XX-XXXX)">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Select Files to Transform:</label>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
+                            <div id="transformFilesList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times-circle"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="confirm-transform">
+                        <i class="fas fa-magic"></i> Transform Files
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Delete All Files Modal -->
     <div class="modal fade" id="deleteAllModal" tabindex="-1" role="dialog" aria-labelledby="deleteAllModalLabel" aria-hidden="true">

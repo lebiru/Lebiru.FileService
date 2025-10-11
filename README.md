@@ -35,6 +35,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **File Sharing**: 🔗 Share button to easily copy file viewing links to clipboard.
 - **In-Browser Text Viewing**: 📄 Text files displayed in browser with syntax highlighting and line numbers.
 - **External File Fetching**: 🌐 Fetch files from external sources (FTP, SFTP, HTTP/HTTPS, WebDAV, Network Shares).
+- **File Transformation**: 🔄 Transform files using regex patterns to extract and process content.
 
 ## Technologies Used
 
@@ -112,6 +113,17 @@ The application supports fetching files from various external sources:
 - **Post-Fetch Actions**: Optionally delete files from source after successful fetch
 - **Role-Based Access**: Different permissions for Admin, Contributor, and Viewer roles
 - **File Ownership**: Users can only modify or delete their own files unless they have Admin privileges
+
+### File Transformation
+
+The application provides ETL (Extract, Transform, Load) capabilities for processing files:
+
+- **Regex Parsing**: Extract specific content from files using regular expressions
+- **File Pattern Matching**: Target specific files for transformation using wildcards
+- **Scheduled Transformations**: Automatically run transformations at configured intervals
+- **Transform Activity Tracking**: Monitor all transform operations with detailed logs
+- **Test Feature**: Test transformations on actual files before saving
+- **Output Files**: Transformed content saved as new files for further processing
 - **Data Validation**: Input validation throughout the application prevents injection attacks
 
 ### File Operations

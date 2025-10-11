@@ -1,0 +1,195 @@
+@model Lebiru.FileService.Models.TransformModel
+
+@{
+    ViewData["Title"] = Model.Id == null ? "Add Transform" : "Edit Transform";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>@(Model.Id == null ? "Add Transform" : "Edit Transform")</h2>
+            <p class="text-muted">Configure a @(Model.Id == null ? "new" : "n existing") file transformation</p>
+        </div>
+        <div class="col-auto">
+            <a href="@Url.Action("Index", "Transform")" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Transforms
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="@Url.Action("SaveTransform", "Transform")" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                @if (!string.IsNullOrEmpty(Model.Id))
+                {
+                    <input type="hidden" id="Id" name="Id" value="@Model.Id" />
+                }
+                <div class="form-group">
+                    <label for="Title">Title</label>
+                    <input type="text" class="form-control" id="Title" name="Title" required 
+                           value="@Model.Title" placeholder="Enter a descriptive title">
+                    <small class="form-text text-muted">A friendly name to identify this transformation</small>
+                    <span asp-validation-for="Title" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="FilePattern">File Pattern</label>
+                    <input type="text" class="form-control" id="FilePattern" name="FilePattern" required
+                           value="@Model.FilePattern" placeholder="*.txt, report_*.csv, etc.">
+                    <small class="form-text text-muted">Pattern to match files to be transformed (e.g., *.txt, report_*.csv)</small>
+                    <span asp-validation-for="FilePattern" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="RegexPattern">Regex Pattern</label>
+                    <input type="text" class="form-control" id="RegexPattern" name="RegexPattern" required
+                           value="@Model.RegexPattern" placeholder="Enter regex pattern">
+                    <small class="form-text text-muted">Regular expression to extract content from files</small>
+                    <span asp-validation-for="RegexPattern" class="text-danger"></span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="TransformIntervalMinutes">Schedule Interval (Minutes)</label>
+                        <input type="number" class="form-control" id="TransformIntervalMinutes" name="TransformIntervalMinutes" 
+                               value="@(Model.TransformIntervalMinutes > 0 ? Model.TransformIntervalMinutes : 60)" min="5" max="10080">
+                        <small class="form-text text-muted">How often to run this transform automatically (5 min - 7 days)</small>
+                        <span asp-validation-for="TransformIntervalMinutes" class="text-danger"></span>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <div class="custom-control custom-switch mt-4">
+                            <input type="checkbox" class="custom-control-input" id="IsActive" name="IsActive" 
+                                  @(Model.IsActive ? "checked" : "")>
+                            <label class="custom-control-label" for="IsActive">Active</label>
+                        </div>
+                        <small class="form-text text-muted">Enable/disable automatic scheduling</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="custom-control custom-switch">
+                        <input type="checkbox" class="custom-control-input" id="ModifyExistingFile" name="ModifyExistingFile" 
+                              @(Model.ModifyExistingFile ? "checked" : "")>
+                        <label class="custom-control-label" for="ModifyExistingFile">Modify Existing Files</label>
+                    </div>
+                    <small class="form-text text-muted">When checked, transformation will modify the original files (with backup). Otherwise, new files will be created.</small>
+                </div>
+
+                <hr />
+
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Transform
+                    </button>
+                    <button type="button" id="testTransformBtn" class="btn btn-outline-info ml-2">
+                        <i class="fas fa-plug"></i> Test Transform
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Help & Information</h5>
+        </div>
+        <div class="card-body">
+            <h6>File Pattern Examples:</h6>
+            <ul>
+                <li><code>*.txt</code> - Match all text files</li>
+                <li><code>report_*.csv</code> - Match CSV files starting with "report_"</li>
+                <li><code>*.{csv,xlsx}</code> - Match both CSV and Excel files</li>
+                <li><code>log_*_2025-*.log</code> - Match log files from 2025</li>
+            </ul>
+
+            <h6>Regex Pattern Help:</h6>
+            <p>Enter regular expressions to extract content from files. Use parentheses to capture the text you want to extract.</p>
+            <p>Examples:</p>
+            <ul>
+                <li>Extract names: <code>Name: (.*)</code></li>
+                <li>Extract dates: <code>(20[0-9]{2}-[0-9]{2}-[0-9]{2})</code></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function() {
+            // Handle test transform button
+            $('#testTransformBtn').click(function(e) {
+                e.preventDefault();
+                
+                // Get form data
+                var formData = new FormData($('form')[0]);
+                var button = $(this);
+                
+                // Create a simple object for the AJAX request with explicit values
+                var postData = {
+                    Title: $("#Title").val() || "Test transform",
+                    FilePattern: $("#FilePattern").val() || "*.*",
+                    RegexPattern: $("#RegexPattern").val() || ""
+                };
+                
+                // Log the data being sent for debugging
+                console.log("Sending test request with data:", JSON.stringify(postData));
+                
+                // Disable button and show spinner
+                button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Testing...');
+                
+                // Send AJAX request to test the transform
+                $.ajax({
+                    url: '@Url.Action("TestTransform", "Transform")',
+                    type: 'POST',
+                    contentType: 'application/x-www-form-urlencoded',
+                    data: postData,
+                    dataType: 'json'
+                })
+                    .done(function(data) {
+                        if (data.success) {
+                            // Show success notification with the message
+                            showNotification('success', data.message || 'Transform test successful!');
+                        } else {
+                            // Show error notification with more details if available
+                            var errorMsg = data.message || 'Transform test failed.';
+                            showNotification('danger', errorMsg);
+                        }
+                    })
+                    .fail(function(jqXHR, textStatus, errorThrown) {
+                        // Show error notification
+                        console.error("AJAX error:", textStatus, errorThrown);
+                        showNotification('danger', 'Transform test failed. Please try again later.');
+                    })
+                    .always(function() {
+                        // Re-enable button and restore text
+                        button.prop('disabled', false).html('<i class="fas fa-plug"></i> Test Transform');
+                    });
+            });
+            
+            // Function to show notifications
+            function showNotification(type, message) {
+                // Remove any existing notifications
+                $('.alert').alert('close');
+                
+                // Create the notification
+                var alertHtml = 
+                    '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                        message +
+                        '<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
+                            '<span aria-hidden="true">&times;</span>' +
+                        '</button>' +
+                    '</div>';
+                
+                // Insert at the top of the content area
+                $('.container').prepend(alertHtml);
+                
+                // Auto-hide after 5 seconds
+                setTimeout(function() {
+                    $('.alert').alert('close');
+                }, 5000);
+            }
+        });
+    </script>
+}
