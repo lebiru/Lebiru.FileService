@@ -10,6 +10,7 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors>CS1591</WarningsAsErrors>
+    <UserSecretsId>431783fa-f5a2-44ea-aec7-caef4b8da9ea</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

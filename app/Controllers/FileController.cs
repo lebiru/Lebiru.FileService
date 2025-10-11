@@ -743,6 +743,64 @@ namespace Lebiru.FileService.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Syncs the file metadata with the actual files in the uploads directory.
+        /// This ensures all files are properly tracked, including those created by other processes (like the TransformController).
+        /// </summary>
+        [HttpPost("SyncFileMetadata")]
+        public IActionResult SyncFileMetadata()
+        {
+            try
+            {
+                var existingFiles = FileInfos;
+                var existingFilePaths = existingFiles.Select(f => f.FilePath).ToHashSet();
+
+                var uploadsDirectory = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder));
+                if (!uploadsDirectory.Exists)
+                {
+                    uploadsDirectory.Create();
+                    _logger?.LogInformation("Created uploads directory at {Path}", uploadsDirectory.FullName);
+                }
+
+                var filesOnDisk = uploadsDirectory.GetFiles();
+                int addedCount = 0;
+
+                foreach (var fileInfo in filesOnDisk)
+                {
+                    // If the file isn't in our metadata, add it
+                    if (!existingFilePaths.Contains(fileInfo.FullName))
+                    {
+                        var newFile = new Models.FileInfo
+                        {
+                            FileName = fileInfo.Name,
+                            FilePath = fileInfo.FullName,
+                            FileSize = fileInfo.Length,
+                            UploadTime = fileInfo.CreationTime,
+                            ExpiryTime = null // No expiry for newly discovered files
+                        };
+
+                        existingFiles.Add(newFile);
+                        addedCount++;
+                        _logger?.LogInformation("Added missing file to metadata: {FileName}", fileInfo.Name);
+                    }
+                }
+
+                // Update the file metadata if any files were added
+                if (addedCount > 0)
+                {
+                    FileInfos = existingFiles;
+                    _logger?.LogInformation("Synced file metadata: {AddedCount} files added", addedCount);
+                }
+
+                return Json(new { success = true, addedCount });
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error syncing file metadata");
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
         private ServerSpaceInfo GetServerSpaceInfo()
         {
             // Calculate total space used by uploaded files

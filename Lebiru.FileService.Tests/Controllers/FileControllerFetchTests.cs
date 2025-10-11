@@ -150,7 +150,7 @@ namespace Lebiru.FileService.Tests.Controllers
     /// Test that TestFetchConnection returns correct JSON result for HTTP connection
     /// </summary>
     [Fact]
-    public void TestFetchConnection_HTTP_ReturnsJsonResult()
+    public async Task TestFetchConnection_HTTP_ReturnsJsonResult()
     {
       // Arrange
       var formCollection = new FormCollection(
@@ -173,7 +173,8 @@ namespace Lebiru.FileService.Tests.Controllers
       };
 
       // Act
-      var result = _controller.TestFetchConnection("") as JsonResult;
+      var actionResult = await _controller.TestFetchConnection("");
+      var result = actionResult as JsonResult;
 
       // Assert
       Assert.NotNull(result);
