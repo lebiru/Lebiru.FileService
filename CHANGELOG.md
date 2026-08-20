@@ -1,0 +1,27 @@
+# Changelog
+
+All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
+
+## [0.0.1-preview.7] - 2026-08-19
+
+### Added
+
+- OpenTelemetry tracing, metrics, runtime instrumentation, OTLP export, and an authenticated telemetry dashboard with time-series charts.
+- Focused security regression tests for path traversal and SSRF protections.
+
+### Changed
+
+- Modernized the shared application layout, navigation, typography, gradients, responsive behavior, accessibility, and telemetry presentation.
+- Restricted destructive and integration-management actions to administrator and contributor roles, with administrator-only cleanup and metadata synchronization.
+- Replaced generated and logged default credentials with an explicit one-time administrator bootstrap password.
+- Migrated user passwords to salted ASP.NET Core Identity hashes and protected stored integration credentials with ASP.NET Core Data Protection.
+- Added global antiforgery validation, login throttling, OAuth state validation, safer redirects, POST-only logout and token refresh, and security response headers.
+- Enforced canonical storage paths, stricter MIME/signature validation, regex timeouts, and outbound HTTP destination validation.
+- Disabled TLS certificate bypasses, unrestricted development CORS, dangerous active-content uploads, and client exposure of OAuth tokens.
+- Updated vulnerable transitive packages to patched versions.
+
+### Fixed
+
+- Prevented directory traversal across upload, download, archive, rename, delete, transformation, expiry, and Gmail attachment paths.
+- Prevented SSRF access to loopback, private, link-local, metadata, and nonstandard-port destinations.
+- Prevented regex denial-of-service from unbounded user-defined patterns.

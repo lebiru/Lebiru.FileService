@@ -64,7 +64,7 @@ namespace Lebiru.FileService.HangfireJobs
 
                 foreach (var file in expiredFiles)
                 {
-                    var filePath = Path.Combine(_uploadsDirectory, file.FileName);
+                    var filePath = FilePathSecurity.ResolveFile(_uploadsDirectory, file.FileName);
                     try
                     {
                         if (File.Exists(filePath))

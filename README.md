@@ -87,11 +87,9 @@ The API documentation is available through Swagger. Once the application is runn
   - **Admin**: Full access to all features including user management
   - **Contributor**: Can upload and manage files
   - **Viewer**: Can view and download files
-- Default users are created at first startup with generated passwords:
-  - `admin` (Admin role)
-  - `contributor` (Contributor role)
-  - `viewer` (Viewer role)
-- Passwords are displayed in the console at first startup
+- On first startup, set `LEBIRU_BOOTSTRAP_ADMIN_PASSWORD` to a strong password of at least 14 characters. The application creates only the `admin` account and never writes the password to logs.
+- Remove `LEBIRU_BOOTSTRAP_ADMIN_PASSWORD` from the environment after the administrator has been created.
+- Existing plaintext password records are migrated once to salted password hashes.
 - All API endpoints and web interfaces require authentication
 - Current user is displayed in the navigation bar
 
@@ -184,6 +182,19 @@ The application provides ETL (Extract, Transform, Load) capabilities for process
   - In-browser text file viewing with syntax highlighting and line numbers
 
 ## Deployment
+
+### OpenTelemetry
+
+The application exports ASP.NET Core request traces, outbound HTTP traces, runtime metrics, and custom request/error/latency metrics. The built-in dashboard is available at `/Telemetry` after login.
+
+By default telemetry is written through the console exporter. To send OTLP data to an OpenTelemetry Collector or compatible backend, set an endpoint and optionally disable console output:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OpenTelemetry__UseConsoleExporter=false
+```
+
+The service name defaults to `Lebiru.FileService` and can be changed with `OpenTelemetry__ServiceName`.
 
 ### Docker Deployment
 

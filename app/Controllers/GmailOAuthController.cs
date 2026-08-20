@@ -8,13 +8,15 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Lebiru.FileService.Models;
+using System.Security.Cryptography;
 
 namespace Lebiru.FileService.Controllers
 {
   /// <summary>
   /// Controller for handling Gmail OAuth authentication flow
   /// </summary>
-  [Authorize]
+  [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
   [Route("[controller]")]
   [ApiController]
   public class GmailOAuthController : Controller
@@ -27,6 +29,7 @@ namespace Lebiru.FileService.Controllers
     private const string ACCESS_TOKEN_KEY = "GmailOAuthAccessToken";
     private const string REFRESH_TOKEN_KEY = "GmailOAuthRefreshToken";
     private const string TOKEN_EXPIRY_KEY = "GmailOAuthTokenExpiry";
+    private const string OAUTH_STATE_KEY = "GmailOAuthState";
 
     /// <summary>
     /// Initializes a new instance of the GmailOAuthController class
@@ -53,8 +56,6 @@ namespace Lebiru.FileService.Controllers
       try
       {
         var clientId = _configuration["Authentication:Google:ClientId"];
-        _logger.LogInformation("Using Client ID: {ClientId}", clientId);
-
         if (string.IsNullOrEmpty(clientId) || clientId == "YOUR_GOOGLE_CLIENT_ID")
         {
           _logger.LogError("Google OAuth client ID not configured or using default placeholder value");
@@ -110,17 +111,12 @@ namespace Lebiru.FileService.Controllers
         authUrlBuilder.Append("&scope=").Append(Uri.EscapeDataString(scope));
         authUrlBuilder.Append("&access_type=offline");
         authUrlBuilder.Append("&prompt=consent");
+        var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        HttpContext.Session.SetString(OAUTH_STATE_KEY, state);
+        authUrlBuilder.Append("&state=").Append(Uri.EscapeDataString(state));
 
         var authorizationUrl = authUrlBuilder.ToString();
 
-        // Enhanced debugging - log everything we know
-        _logger.LogInformation("OAuth Authorization Details:");
-        _logger.LogInformation("- Client ID: {ClientID}", clientId);
-        _logger.LogInformation("- Redirect URI: {RedirectURI}", redirectUri);
-        _logger.LogInformation("- Redirect URI (from config): {ConfigRedirectURI}", configuredRedirectUri ?? "Not set");
-        _logger.LogInformation("- Generated URI (from Url.Action): {GeneratedURI}", Url.Action("Callback", "GmailOAuth", null, Request.Scheme) ?? "Not generated");
-        _logger.LogInformation("- Scopes: {Scope}", scope);
-        _logger.LogInformation("- Final Authorization URL: {URL}", authorizationUrl);        // Double check the generated URL
         if (!Uri.IsWellFormedUriString(authorizationUrl, UriKind.Absolute))
         {
           _logger.LogError("Generated authorization URL is not a valid absolute URI: {URL}", authorizationUrl);
@@ -140,8 +136,18 @@ namespace Lebiru.FileService.Controllers
     /// Handles the OAuth callback from Google
     /// </summary>
     [HttpGet("Callback")]
-    public async Task<IActionResult> Callback(string code, string? error = null)
+    public async Task<IActionResult> Callback(string code, string? state = null, string? error = null)
     {
+      var expectedState = HttpContext.Session.GetString(OAUTH_STATE_KEY);
+      HttpContext.Session.Remove(OAUTH_STATE_KEY);
+      if (string.IsNullOrEmpty(state) || string.IsNullOrEmpty(expectedState) ||
+          !CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(state), Encoding.UTF8.GetBytes(expectedState)))
+      {
+        _logger.LogWarning("Rejected Gmail OAuth callback with invalid state");
+        return BadRequest("Invalid OAuth state.");
+      }
+
       if (!string.IsNullOrEmpty(error))
       {
         _logger.LogWarning("OAuth error: {Error}", error);
@@ -278,12 +284,7 @@ namespace Lebiru.FileService.Controllers
 
       if (hasAccessToken && hasRefreshToken)
       {
-        return Json(new
-        {
-          success = true,
-          accessToken = HttpContext.Session.GetString(ACCESS_TOKEN_KEY),
-          refreshToken = HttpContext.Session.GetString(REFRESH_TOKEN_KEY)
-        });
+        return Json(new { success = true });
       }
 
       return Json(new { success = false });
@@ -292,7 +293,7 @@ namespace Lebiru.FileService.Controllers
     /// <summary>
     /// Refreshes an expired access token using the refresh token
     /// </summary>
-    [HttpGet("RefreshToken")]
+    [HttpPost("RefreshToken")]
     public async Task<IActionResult> RefreshToken()
     {
       // Check if we have a refresh token
@@ -360,7 +361,7 @@ namespace Lebiru.FileService.Controllers
             HttpContext.Session.SetString(TOKEN_EXPIRY_KEY, expiryTime.ToString("O"));
           }
 
-          return Json(new { success = true, accessToken = newAccessToken });
+          return Json(new { success = true });
         }
 
         return Json(new { success = false, message = "Access token not found in response" });
@@ -368,7 +369,7 @@ namespace Lebiru.FileService.Controllers
       catch (Exception ex)
       {
         _logger.LogError(ex, "Error refreshing OAuth token");
-        return Json(new { success = false, message = "Error refreshing token: " + ex.Message });
+        return Json(new { success = false, message = "Error refreshing token." });
       }
     }
   }

@@ -161,18 +161,6 @@
                         </div>
                     </div>
 
-                    <div id="httpOptions" class="protocol-options" style="display: none;">
-                        <h5 class="mt-4 mb-3">HTTP/HTTPS Options</h5>
-                        <div class="form-group">
-                            <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="IgnoreSslErrors" name="IgnoreSslErrors" 
-                                       @(Model.IgnoreSslErrors ? "checked" : "")>
-                                <label class="custom-control-label" for="IgnoreSslErrors">Ignore SSL Certificate Errors</label>
-                                <small class="form-text text-muted ml-4">Not recommended for production use</small>
-                            </div>
-                        </div>
-                    </div>
-
                     <div id="gmailOptions" class="protocol-options" style="display: none;">
                         <h5 class="mt-4 mb-3">Gmail Options</h5>
                         
@@ -415,10 +403,6 @@
                                 .removeClass('btn-danger')
                                 .addClass('btn-success');
                                 
-                            // Store OAuth tokens in hidden fields
-                            $('#OAuthAccessToken').val(data.accessToken);
-                            $('#OAuthRefreshToken').val(data.refreshToken);
-                            
                             // Show success notification
                             showNotification('success', 'Successfully connected to Gmail!');
                         } else {

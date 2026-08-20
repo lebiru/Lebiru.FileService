@@ -45,7 +45,6 @@ namespace Lebiru.FileService.Services
             "image/gif",
             "image/bmp",
             "image/webp",
-            "image/svg+xml",
             "image/tiff",
             
             // Audio
@@ -62,11 +61,7 @@ namespace Lebiru.FileService.Services
             
             // Other common formats
             "application/json",
-            "text/html",
-            "text/css",
-            "application/javascript",
-            "application/xml",
-            "text/xml"
+            "application/octet-stream"
         };
 
     // List of known risky MIME types
@@ -96,7 +91,8 @@ namespace Lebiru.FileService.Services
         {
             ".exe", ".msi", ".bat", ".cmd", ".sh", ".ps1",
             ".php", ".jar", ".dll", ".com", ".vbs", ".js",
-            ".py", ".pl", ".rb"
+            ".py", ".pl", ".rb", ".html", ".htm", ".svg",
+            ".xml", ".xsl", ".css"
         };
 
     /// <summary>
@@ -148,12 +144,32 @@ namespace Lebiru.FileService.Services
       }
 
       // Check if content type is explicitly allowed
-      if (_allowedMimeTypes.Contains(contentType))
+      if (_allowedMimeTypes.Contains(contentType) && IsMimeConsistent(extension, contentType))
       {
         return (true, "File type is allowed");
       }
 
-      return (false, $"Unknown file type '{contentType}' is not allowed");
+      return (false, $"File type '{contentType}' does not match an allowed extension");
+    }
+
+    private static bool IsMimeConsistent(string? extension, string contentType)
+    {
+      if (string.IsNullOrEmpty(extension)) return false;
+      return extension switch
+      {
+        ".pdf" => contentType == "application/pdf",
+        ".jpg" or ".jpeg" => contentType == "image/jpeg",
+        ".png" => contentType == "image/png",
+        ".gif" => contentType == "image/gif",
+        ".webp" => contentType == "image/webp",
+        ".zip" => contentType is "application/zip" or "application/octet-stream",
+        ".docx" => contentType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".xlsx" => contentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".pptx" => contentType == "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".txt" or ".log" or ".md" => contentType == "text/plain",
+        ".csv" => contentType is "text/csv" or "text/plain",
+        _ => true
+      };
     }
   }
 }

@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Lebiru.FileService.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Lebiru.FileService.Controllers
 {
@@ -40,6 +41,7 @@ namespace Lebiru.FileService.Controllers
         /// Handles the login form submission
         /// </summary>
         [HttpPost("Login")]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> LoginPost(string username, string password, string? returnUrl = null)
         {
             if (!_userService.ValidateUser(username, password))
@@ -61,13 +63,13 @@ namespace Lebiru.FileService.Controllers
                 claimsPrincipal,
                 authProperties);
 
-            return Redirect(returnUrl ?? "/File/Home");
+            return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl! : "/File/Home");
         }
 
         /// <summary>
         /// Handles user logout
         /// </summary>
-        [HttpGet("Logout")]
+        [HttpPost("Logout")]
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

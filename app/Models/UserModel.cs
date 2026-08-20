@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Lebiru.FileService.Models
 {
@@ -13,9 +14,13 @@ namespace Lebiru.FileService.Models
         public string Username { get; set; } = string.Empty;
 
         /// <summary>
-        /// The user's password (should be hashed in production)
+        /// Legacy plaintext password retained only for one-time migration.
         /// </summary>
-        public string Password { get; set; } = string.Empty;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Password { get; set; }
+
+        /// <summary>The user's salted password hash.</summary>
+        public string PasswordHash { get; set; } = string.Empty;
 
         /// <summary>
         /// The user's role determining their access level (Admin/Contributor/Viewer)

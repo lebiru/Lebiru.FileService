@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Lebiru.FileServer</title>
+    <title>@ViewData["Title"] · Lebiru</title>
+    <meta name="theme-color" content="#111827" />
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <link rel="icon" href="@Url.Content("~/images/favicon.ico")" />
@@ -183,37 +184,47 @@
         }
 
     </style>
+    <link rel="stylesheet" href="@Url.Content("~/css/site.css")" asp-append-version="true" />
     @RenderSection("Styles", required: false)
 </head>
 <body class="@(ViewContext.RouteData.Values["action"]?.ToString()?.ToLower() == "index" ? "page-home" : "") @(ViewContext.RouteData.Values["action"]?.ToString()?.ToLower() == "swagger" || Context.Request.Path.Value?.ToLower().Contains("swagger") == true ? "page-swagger" : "")">
     <header style="position: sticky; top: 0; z-index: 1020;">
-        <nav class="navbar navbar-expand-md navbar-light" style="background-color: #f7f7f7;">
+        <nav class="navbar navbar-expand-lg navbar-dark app-navbar">
             <div class="container-fluid">
-                <a class="navbar-brand mr-auto" href="/File/Home">Felix</a>
+                <a class="navbar-brand mr-auto" href="/File/Home" aria-label="Lebiru dashboard">
+                    <span class="brand-mark"><i class="fas fa-layer-group" aria-hidden="true"></i></span>
+                    <span class="brand-copy"><strong>Lebiru</strong><small>File Service</small></span>
+                </a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ml-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="/File/Swagger">Swagger</a>
+                            <a class="nav-link" href="/File/Swagger"><i class="fas fa-code" aria-hidden="true"></i> API</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/healthz">HealthCheck</a>
+                            <a class="nav-link" href="/healthz"><i class="fas fa-heartbeat" aria-hidden="true"></i> Health</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/hangfire">Hangfire</a>
+                            <a class="nav-link" href="/Telemetry"><i class="fas fa-chart-line" aria-hidden="true"></i> Telemetry</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/Config/View">ConfigView</a>
+                            <a class="nav-link" href="/hangfire"><i class="fas fa-tasks" aria-hidden="true"></i> Jobs</a>
                         </li>
                         <li class="nav-item">
-                            <span class="nav-link">
-                                <i class="fas fa-user"></i> @User.Identity?.Name
+                            <a class="nav-link" href="/Config/View"><i class="fas fa-sliders-h" aria-hidden="true"></i> Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <span class="nav-link user-chip">
+                                <i class="fas fa-user-circle" aria-hidden="true"></i> @User.Identity?.Name
                             </span>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/Auth/Logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                            <form method="post" action="/Auth/Logout" class="logout-form">
+                                @Html.AntiForgeryToken()
+                                <button class="nav-link logout-link" type="submit"><i class="fas fa-sign-out-alt" aria-hidden="true"></i><span class="sr-only">Logout</span></button>
+                            </form>
                         </li>
                     </ul>
                 </div>
@@ -223,19 +234,20 @@
 
     <div class="d-flex">
         <!-- Sidebar -->
-        <div id="sidebar" class="sidebar">
+        <aside id="sidebar" class="sidebar" aria-label="Primary navigation">
             <div class="sidebar-content">
+                <div class="sidebar-label">Workspace</div>
                 <a href="/File/Home" class="sidebar-item">
                     <i class="fas fa-home"></i>
-                    <span class="sidebar-text">Home</span>
+                    <span class="sidebar-text">Overview</span>
                 </a>
                 <a href="/File/Upload" class="sidebar-item">
                     <i class="fas fa-upload"></i>
-                    <span class="sidebar-text">Upload File</span>
+                    <span class="sidebar-text">Upload</span>
                 </a>
                 <a href="/File/Fetch" class="sidebar-item">
                     <i class="fas fa-cloud-download-alt"></i>
-                    <span class="sidebar-text">Fetch</span>
+                    <span class="sidebar-text">Sources</span>
                 </a>
                 <a href="/Transform" class="sidebar-item">
                     <i class="fas fa-magic"></i>
@@ -243,19 +255,20 @@
                 </a>
             </div>
             <!-- Sidebar toggle removed as sidebar is now permanently expanded -->
-        </div>
+        </aside>
 
         <!-- Main Content -->
-        <div class="container main-content">
+        <div class="main-content">
             <main role="main" class="pb-3">
                 @RenderBody()
             </main>
         </div>
     </div>
 
-    <footer class="border-top footer text-muted footer-bottom">
+    <footer class="footer text-muted footer-bottom">
         <div class="container-fluid footer-container py-3 my-3">
-            &copy; @DateTime.Now.Year - Felix Version: @ViewContext.HttpContext.Items["Version"] (@ViewContext.HttpContext.Items["GitCommit"])
+            <span>&copy; @DateTime.Now.Year Lebiru</span>
+            <span class="footer-version">Version @ViewContext.HttpContext.Items["Version"] · @ViewContext.HttpContext.Items["GitCommit"]</span>
         </div>
     </footer>
     
@@ -268,7 +281,31 @@
         // Sidebar is now permanently expanded, no toggle functionality needed
         // This script is kept as a placeholder in case we need to add sidebar functionality in the future
         document.addEventListener('DOMContentLoaded', () => {
-            // Sidebar is permanently expanded
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            if (!token) return;
+            document.querySelectorAll('form').forEach(form => {
+                if ((form.method || '').toLowerCase() === 'post' && !form.querySelector('input[name="__RequestVerificationToken"]')) {
+                    const input = document.createElement('input'); input.type = 'hidden';
+                    input.name = '__RequestVerificationToken'; input.value = token; form.appendChild(input);
+                }
+            });
+            if (window.jQuery) $.ajaxSetup({ headers: { RequestVerificationToken: token } });
+            const originalFetch = window.fetch;
+            window.fetch = (input, init = {}) => {
+                const method = (init.method || 'GET').toUpperCase();
+                if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+                    init.headers = new Headers(init.headers || {});
+                    init.headers.set('RequestVerificationToken', token);
+                }
+                return originalFetch(input, init);
+            };
+            const originalOpen = XMLHttpRequest.prototype.open;
+            const originalSend = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.open = function(method, ...args) { this.__method = method; return originalOpen.call(this, method, ...args); };
+            XMLHttpRequest.prototype.send = function(...args) {
+                if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes((this.__method || 'GET').toUpperCase())) this.setRequestHeader('RequestVerificationToken', token);
+                return originalSend.apply(this, args);
+            };
         });
     </script>
     

@@ -12,6 +12,13 @@ using Hangfire.Console;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Hangfire.Storage.SQLite;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using System.Diagnostics;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,17 +66,41 @@ builder.Services.AddSingleton<IUserService, UserService>();
 // Register MIME validation service as singleton
 builder.Services.AddSingleton<IMimeValidationService, MimeValidationService>();
 builder.Services.AddSingleton<IFileMetadataStore, FileMetadataStore>();
+builder.Services.AddSingleton<TelemetryService>();
+builder.Services.AddSingleton<SsrfProtectionService>();
+var keyDirectory = Path.Combine(builder.Environment.ContentRootPath, "app-data", "keys");
+Directory.CreateDirectory(keyDirectory);
+builder.Services.AddDataProtection()
+    .SetApplicationName("Lebiru.FileService")
+    .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
 
-// Configure CORS for OAuth communication
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
+var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ??
+                   Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+var useConsoleExporter = builder.Configuration.GetValue("OpenTelemetry:UseConsoleExporter", true);
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(
+        serviceName: builder.Configuration["OpenTelemetry:ServiceName"] ?? "Lebiru.FileService",
+        serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString()))
+    .WithTracing(tracing =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        tracing.AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
+            tracing.AddOtlpExporter(options => options.Endpoint = endpoint);
+        else if (useConsoleExporter)
+            tracing.AddConsoleExporter();
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics.AddMeter(TelemetryService.MeterName)
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation();
+        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
+            metrics.AddOtlpExporter(options => options.Endpoint = endpoint);
+        else if (useConsoleExporter)
+            metrics.AddConsoleExporter();
     });
-});
 
 // Register HttpClient Factory for OAuth operations
 builder.Services.AddHttpClient("GoogleOAuth");
@@ -79,6 +110,7 @@ builder.Services.AddHttpClient("GmailApi", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 }).SetHandlerLifetime(TimeSpan.FromMinutes(10));
 builder.Services.AddHttpClient("ExternalFetch", client => client.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
     .SetHandlerLifetime(TimeSpan.FromMinutes(10));
 
 var hangfirePath = Path.Combine(Directory.GetCurrentDirectory(), "app-data", "hangfire.db");
@@ -142,7 +174,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 
-builder.Services.AddControllersWithViews(); // Add MVC services
+builder.Services.AddControllersWithViews(options =>
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddRazorPages(); // Add Razor Pages services
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddHealthChecks()
@@ -172,6 +205,19 @@ builder.Services.AddSession(options =>
 
 
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0
+        }));
+});
+
 // Load version configuration
 var versionConfig = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())  // Use current directory instead of base directory
@@ -189,9 +235,6 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    // Use CORS in development
-    app.UseCors("AllowAll");
-
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -215,6 +258,26 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    var telemetry = context.RequestServices.GetRequiredService<TelemetryService>();
+    var stopwatch = Stopwatch.StartNew();
+    telemetry.RequestStarted();
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        stopwatch.Stop();
+        telemetry.RequestCompleted(
+            context.Request.Method,
+            context.Request.Path.Value ?? "/",
+            context.Response.StatusCode,
+            stopwatch.Elapsed.TotalMilliseconds);
+    }
+});
+
 // Execute next middleware
 app.Use(async (context, next) =>
 {
@@ -222,6 +285,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -232,6 +296,15 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = new[] { new HangfireAuthorizationFilter() }
 });
 app.UseHttpsRedirection();
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "same-origin";
+    context.Response.Headers.XFrameOptions = "DENY";
+    await next();
+});
+
 app.UseStaticFiles();
 app.UseSession();
 

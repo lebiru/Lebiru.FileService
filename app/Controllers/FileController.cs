@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using System.Dynamic;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.AspNetCore.DataProtection;
 
 /// <summary>
 /// Model class for pagination request data
@@ -55,6 +56,8 @@ namespace Lebiru.FileService.Controllers
         private readonly ILogger<FileController> _logger;
         private readonly IFileMetadataStore? _metadataStore;
         private readonly IHttpClientFactory? _httpClientFactory;
+        private readonly IDataProtector? _secretProtector;
+        private readonly SsrfProtectionService? _ssrfProtection;
 
         private static readonly object _fileLock = new object();
 
@@ -108,6 +111,8 @@ namespace Lebiru.FileService.Controllers
         /// <param name="logger">The logger service</param>
         /// <param name="metadataStore">The cached metadata store, when supplied by dependency injection</param>
         /// <param name="httpClientFactory">Factory for pooled outbound HTTP connections</param>
+        /// <param name="dataProtectionProvider">Protects persisted fetch credentials</param>
+        /// <param name="ssrfProtection">Validates outbound destinations</param>
         public FileController(
             CleanupJob cleanupJob,
 
@@ -118,7 +123,9 @@ namespace Lebiru.FileService.Controllers
             IMimeValidationService mimeValidationService,
             ILogger<FileController> logger,
             IFileMetadataStore? metadataStore = null,
-            IHttpClientFactory? httpClientFactory = null)
+            IHttpClientFactory? httpClientFactory = null,
+            IDataProtectionProvider? dataProtectionProvider = null,
+            SsrfProtectionService? ssrfProtection = null)
         {
             _cleanupJob = cleanupJob;
 
@@ -136,6 +143,8 @@ namespace Lebiru.FileService.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _metadataStore = metadataStore;
             _httpClientFactory = httpClientFactory;
+            _secretProtector = dataProtectionProvider?.CreateProtector("Lebiru.FileService.FetchSecrets.v1");
+            _ssrfProtection = ssrfProtection;
         }
 
         /// <summary>
@@ -292,6 +301,8 @@ namespace Lebiru.FileService.Controllers
             // Check file size limits and MIME types
             foreach (var file in files)
             {
+                if (!string.Equals(file.FileName, Path.GetFileName(file.FileName), StringComparison.Ordinal))
+                    return BadRequest($"File '{file.FileName}' contains an invalid path.");
                 var maxFileSizeBytes = _config.MaxFileSizeMB * 1024L * 1024L;
                 if (file.Length > maxFileSizeBytes)
                 {
@@ -304,6 +315,8 @@ namespace Lebiru.FileService.Controllers
                 {
                     return BadRequest($"Security check failed: {validationResult.Message}");
                 }
+                if (!HasValidFileSignature(file))
+                    return BadRequest($"Security check failed: file content does not match '{file.ContentType}'.");
             }
 
             var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
@@ -315,7 +328,7 @@ namespace Lebiru.FileService.Controllers
 
             foreach (var file in files)
             {
-                var filePath = Path.Combine(uploadsFolderPath, file.FileName);
+                var filePath = FilePathSecurity.ResolveFile(uploadsFolderPath, file.FileName);
 
                 // Check if file upload will exceed configured limit
                 var maxSpace = _config.MaxDiskSpaceGB * 1024L * 1024L * 1024L;
@@ -435,7 +448,7 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("ViewFile")]
         public IActionResult ViewFile(string filename)
         {
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+            var filePath = GetUploadPath(filename);
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound("File not found.");
@@ -476,7 +489,7 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("PrintFile")]
         public IActionResult PrintFile(string filename)
         {
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+            var filePath = GetUploadPath(filename);
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound("File not found.");
@@ -497,6 +510,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="filename">The name of the file to copy</param>
         /// <returns>Success or error message</returns>
         [HttpPost("CopyFile")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public IActionResult CopyFile([FromForm] string filename)
         {
             try
@@ -509,7 +523,7 @@ namespace Lebiru.FileService.Controllers
 
                 // Sanitize filename and get paths
                 filename = Path.GetFileName(filename);
-                var sourcePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+                var sourcePath = GetUploadPath(filename);
 
                 // Check if source file exists
                 if (!System.IO.File.Exists(sourcePath))
@@ -655,7 +669,7 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("DownloadFile")]
         public IActionResult DownloadFile(string filename)
         {
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+            var filePath = GetUploadPath(filename);
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound();
@@ -671,6 +685,7 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         /// <returns>A confirmation that the cleanup job has been queued</returns>
         [HttpPost("TriggerCleanup")]
+        [Authorize(Roles = UserRoles.Admin)]
         public IActionResult TriggerCleanup()
         {
             // Enqueue both cleanup jobs
@@ -705,7 +720,7 @@ namespace Lebiru.FileService.Controllers
                 {
                     foreach (var fileName in fileNamesArray)
                     {
-                        var filePath = Path.Combine(uploadsFolderPath, fileName);
+                        var filePath = FilePathSecurity.ResolveFile(uploadsFolderPath, fileName);
                         if (System.IO.File.Exists(filePath))
                         {
                             var zipEntry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
@@ -769,6 +784,7 @@ namespace Lebiru.FileService.Controllers
         /// This ensures all files are properly tracked, including those created by other processes (like the TransformController).
         /// </summary>
         [HttpPost("SyncFileMetadata")]
+        [Authorize(Roles = UserRoles.Admin)]
         public IActionResult SyncFileMetadata()
         {
             try
@@ -889,6 +905,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="newFilename">The new name for the file</param>
         /// <returns>Success or error message</returns>
         [HttpPost("RenameFile")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public IActionResult RenameFile([FromForm] string oldFilename, [FromForm] string newFilename)
         {
             try
@@ -912,8 +929,8 @@ namespace Lebiru.FileService.Controllers
                     return BadRequest("Changing file extension is not allowed. New filename must have the same extension as the original.");
                 }
 
-                var oldFilePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, oldFilename);
-                var newFilePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, newFilename);
+                var oldFilePath = GetUploadPath(oldFilename);
+                var newFilePath = GetUploadPath(newFilename);
 
                 // Check if source file exists
                 if (!System.IO.File.Exists(oldFilePath))
@@ -970,11 +987,12 @@ namespace Lebiru.FileService.Controllers
         /// <param name="filename">The name of the file to delete</param>
         /// <returns>Success or error message</returns>
         [HttpPost("DeleteFile")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public IActionResult DeleteFile([FromForm] string filename)
         {
             try
             {
-                var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+                var filePath = GetUploadPath(filename);
                 if (!System.IO.File.Exists(filePath))
                 {
                     return NotFound($"File '{filename}' not found.");
@@ -1042,7 +1060,7 @@ namespace Lebiru.FileService.Controllers
         {
             try
             {
-                var filePath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, filename);
+                var filePath = GetUploadPath(filename);
                 if (!System.IO.File.Exists(filePath))
                 {
                     return string.Empty;
@@ -1163,6 +1181,7 @@ namespace Lebiru.FileService.Controllers
         /// <returns>Redirects to the fetch sources list</returns>
         [HttpPost("SaveFetchSource")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         [Consumes("multipart/form-data", "application/x-www-form-urlencoded")]
         public IActionResult SaveFetchSource()
         {
@@ -1386,6 +1405,7 @@ namespace Lebiru.FileService.Controllers
         /// <returns>Redirects to the fetch sources list</returns>
         [HttpPost("DeleteFetchSource")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public IActionResult DeleteFetchSource([FromForm] string id)
         {
             _logger.LogInformation("DeleteFetchSource called with id: {Id}", id ?? "null");
@@ -1420,6 +1440,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="fetchSourceId">The ID of the fetch source to test, or form data for a new source</param>
         /// <returns>JSON result with connection test status</returns>
         [HttpPost("TestFetchConnection")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public async Task<IActionResult> TestFetchConnection(string? fetchSourceId = null)
         {
             FetchSourceModel source = new FetchSourceModel();
@@ -1511,6 +1532,7 @@ namespace Lebiru.FileService.Controllers
         /// <returns>Redirects to the fetch sources list</returns>
         [HttpPost("ExecuteFetch")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public IActionResult ExecuteFetch([FromForm] string fetchSourceId)
         {
             // Log that we've received a request
@@ -1569,8 +1591,25 @@ namespace Lebiru.FileService.Controllers
                     using (var reader = new StreamReader(fileStream))
                     {
                         var json = reader.ReadToEnd();
-                        var sources = System.Text.Json.JsonSerializer.Deserialize<List<FetchSourceModel>>(json);
-                        return sources ?? new List<FetchSourceModel>();
+                        var sources = System.Text.Json.JsonSerializer.Deserialize<List<FetchSourceModel>>(json)
+                            ?? new List<FetchSourceModel>();
+                        var migrated = false;
+                        if (_secretProtector is not null)
+                        {
+                            foreach (var source in sources)
+                            {
+                                source.Password = MigrateSecret(source.Password, ref migrated);
+                                source.OAuthAccessToken = MigrateSecret(source.OAuthAccessToken, ref migrated);
+                                source.OAuthRefreshToken = MigrateSecret(source.OAuthRefreshToken, ref migrated);
+                            }
+                        }
+
+                        if (migrated)
+                        {
+                            SaveFetchSources(sources);
+                        }
+
+                        return sources;
                     }
                 }
                 catch (IOException ex)
@@ -1593,6 +1632,17 @@ namespace Lebiru.FileService.Controllers
 
             _logger.LogError(lastException, "Failed to read fetch sources after {Retries} attempts", retries);
             return new List<FetchSourceModel>();
+        }
+
+        private string? MigrateSecret(string? secret, ref bool migrated)
+        {
+            if (string.IsNullOrEmpty(secret) || secret.StartsWith("dp:v1:", StringComparison.Ordinal))
+            {
+                return secret;
+            }
+
+            migrated = true;
+            return EncryptPassword(DecryptPassword(secret));
         }
 
         /// <summary>
@@ -1848,13 +1898,13 @@ namespace Lebiru.FileService.Controllers
                     url = url.TrimEnd('/') + '/' + source.RemotePath.TrimStart('/');
                 }
 
+                if (_ssrfProtection == null)
+                    throw new InvalidOperationException("Outbound request validation is unavailable.");
+                var validatedUri = await _ssrfProtection.ValidateAsync(url, HttpContext.RequestAborted);
+
                 using (var handler = new HttpClientHandler())
                 {
-                    // Ignore SSL errors if requested
-                    if (source.IgnoreSslErrors)
-                    {
-                        handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
-                    }
+                    handler.AllowAutoRedirect = false;
 
                     // Add credentials if provided
                     if (!string.IsNullOrEmpty(source.Username))
@@ -1865,7 +1915,7 @@ namespace Lebiru.FileService.Controllers
                     using (var client = new HttpClient(handler))
                     {
                         client.Timeout = TimeSpan.FromSeconds(10);
-                        var response = await client.GetAsync(url, HttpContext.RequestAborted);
+                        var response = await client.GetAsync(validatedUri, HttpContext.RequestAborted);
                         return Json(new
                         {
                             success = response.IsSuccessStatusCode,
@@ -1891,10 +1941,8 @@ namespace Lebiru.FileService.Controllers
         {
             try
             {
-                // Simple encryption for demo purposes
-                // In a real application, use a more secure method
-                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(password);
-                return Convert.ToBase64String(bytes);
+                if (_secretProtector == null) throw new InvalidOperationException("Data Protection is unavailable.");
+                return "dp:v1:" + _secretProtector.Protect(password);
             }
             catch
             {
@@ -1911,8 +1959,14 @@ namespace Lebiru.FileService.Controllers
         {
             try
             {
-                byte[] bytes = Convert.FromBase64String(encryptedPassword);
-                return System.Text.Encoding.UTF8.GetString(bytes);
+                if (encryptedPassword.StartsWith("dp:v1:", StringComparison.Ordinal))
+                {
+                    if (_secretProtector == null) throw new InvalidOperationException("Data Protection is unavailable.");
+                    return _secretProtector.Unprotect(encryptedPassword[6..]);
+                }
+
+                // One-time compatibility for legacy Base64 values. Values are re-protected when saved.
+                return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encryptedPassword));
             }
             catch
             {
@@ -2063,13 +2117,6 @@ namespace Lebiru.FileService.Controllers
                 client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
                     "Bearer", accessToken);
 
-                // Log the token for debugging (just the first few chars)
-                if (!string.IsNullOrEmpty(accessToken) && accessToken.Length > 10)
-                {
-                    _logger.LogInformation("Testing Gmail connection with token starting with: {TokenPrefix}...",
-                        accessToken.Substring(0, 10));
-                }
-
                 // Make a simple call to Gmail API to test the connection
                 var response = await client.GetAsync("https://www.googleapis.com/gmail/v1/users/me/profile");
 
@@ -2178,12 +2225,7 @@ namespace Lebiru.FileService.Controllers
 
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                return Json(new
-                {
-                    success = true,
-                    accessToken,
-                    refreshToken
-                });
+                return Json(new { success = true });
             }
 
             return Json(new { success = false });
@@ -2489,7 +2531,7 @@ namespace Lebiru.FileService.Controllers
                     {
                         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                         string emailFileName = $"Email_{timestamp}_{safeSubject}.txt";
-                        string emailFilePath = Path.Combine(UploadsFolder, emailFileName);
+                        string emailFilePath = GetUploadPath(emailFileName);
 
                         // Format email content
                         string emailContent = $"From: {from}\nDate: {date}\nSubject: {subject}\n\n{bodyText}";
@@ -2557,7 +2599,7 @@ namespace Lebiru.FileService.Controllers
                     string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                     string safeFilename = new string(filename.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray());
                     string uniqueFilename = $"{timestamp}_{safeFilename}";
-                    string filePath = Path.Combine(UploadsFolder, uniqueFilename);
+                    string filePath = GetUploadPath(uniqueFilename);
 
                     // Check if attachment data is available
                     if (!part.TryGetProperty("body", out var body) ||
@@ -2663,6 +2705,28 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         private HttpClient CreateHttpClient(string name) =>
             _httpClientFactory?.CreateClient(name) ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+        private static string GetUploadPath(string fileName) => FilePathSecurity.ResolveFile(
+            Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder), fileName);
+
+        private static bool HasValidFileSignature(IFormFile file)
+        {
+            Span<byte> header = stackalloc byte[12];
+            using var stream = file.OpenReadStream();
+            var read = stream.Read(header);
+            var bytes = header[..read];
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return extension switch
+            {
+                ".pdf" => bytes.StartsWith("%PDF-"u8),
+                ".jpg" or ".jpeg" => read >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff,
+                ".png" => read >= 8 && bytes[..8].SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+                ".gif" => bytes.StartsWith("GIF87a"u8) || bytes.StartsWith("GIF89a"u8),
+                ".zip" or ".docx" or ".xlsx" or ".pptx" => read >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4b && bytes[2] is 0x03 or 0x05 or 0x07,
+                ".txt" or ".csv" or ".log" or ".md" or ".json" => !bytes.Contains((byte)0),
+                _ => true
+            };
+        }
 
         private async Task MarkGmailEmailAsRead(string messageId, HttpClient httpClient)
         {

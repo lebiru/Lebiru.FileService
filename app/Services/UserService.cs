@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Lebiru.FileService.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 
 namespace Lebiru.FileService.Services
@@ -94,14 +95,17 @@ namespace Lebiru.FileService.Services
         private readonly ILogger<UserService> _logger;
         private readonly string _filePath;
         private readonly object _sync = new();
+        private readonly PasswordHasher<UserModel> _passwordHasher = new();
+        private readonly IConfiguration? _configuration;
         private const int PasswordLength = 32;
 
         /// <summary>
         /// Initializes a new instance of the UserService class
         /// </summary>
-        public UserService(ILogger<UserService> logger)
+        public UserService(ILogger<UserService> logger, IConfiguration? configuration = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _configuration = configuration;
             
             // Set up persistence file path
             var dataDir = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
@@ -120,29 +124,14 @@ namespace Lebiru.FileService.Services
         {
             try
             {
-                // Admin user
-                if (GetUser("admin") == null)
-                {
-                    var adminPassword = GenerateRandomPassword();
-                    AddUser("admin", adminPassword, UserRoles.Admin);
-                    _logger.LogInformation("Created admin user with password: {Password}", adminPassword);
-                }
+                var bootstrapPassword = _configuration?["Authentication:BootstrapAdminPassword"] ??
+                    Environment.GetEnvironmentVariable("LEBIRU_BOOTSTRAP_ADMIN_PASSWORD");
+                if (string.IsNullOrWhiteSpace(bootstrapPassword) || bootstrapPassword.Length < 14)
+                    throw new InvalidOperationException(
+                        "No users exist. Set LEBIRU_BOOTSTRAP_ADMIN_PASSWORD to a password of at least 14 characters for first startup.");
 
-                // Default contributor
-                if (GetUser("contributor") == null)
-                {
-                    var contributorPassword = GenerateRandomPassword();
-                    AddUser("contributor", contributorPassword, UserRoles.Contributor);
-                    _logger.LogInformation("Created contributor user with password: {Password}", contributorPassword);
-                }
-
-                // Default viewer
-                if (GetUser("viewer") == null)
-                {
-                    var viewerPassword = GenerateRandomPassword();
-                    AddUser("viewer", viewerPassword, UserRoles.Viewer);
-                    _logger.LogInformation("Created viewer user with password: {Password}", viewerPassword);
-                }
+                AddUser("admin", bootstrapPassword, UserRoles.Admin);
+                _logger.LogWarning("Created the bootstrap administrator. Remove LEBIRU_BOOTSTRAP_ADMIN_PASSWORD from the environment now.");
             }
             catch (Exception ex)
             {
@@ -164,7 +153,13 @@ namespace Lebiru.FileService.Services
             var user = GetUser(username);
             if (user == null) return false;
 
-            return user.Password == password; // In production, use proper password hashing
+            var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+            if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                user.PasswordHash = _passwordHasher.HashPassword(user, password);
+                Save();
+            }
+            return verification != PasswordVerificationResult.Failed;
         }
 
         /// <inheritdoc />
@@ -189,13 +184,14 @@ namespace Lebiru.FileService.Services
             if (_users.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
                 throw new ArgumentException("Username already exists", nameof(username));
 
-            _users.Add(new UserModel
+            var user = new UserModel
             {
                 Username = username,
-                Password = password,
                 Role = role,
                 OwnedFiles = new List<string>()
-            });
+            };
+            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            _users.Add(user);
             Save();
         }
 
@@ -283,6 +279,18 @@ namespace Lebiru.FileService.Services
                     {
                         _users.Clear();
                         _users.AddRange(users);
+                        var migrated = false;
+                        foreach (var user in _users.Where(user => string.IsNullOrEmpty(user.PasswordHash) && !string.IsNullOrEmpty(user.Password)))
+                        {
+                            user.PasswordHash = _passwordHasher.HashPassword(user, user.Password!);
+                            user.Password = null;
+                            migrated = true;
+                        }
+                        if (migrated)
+                        {
+                            _logger.LogInformation("Migrated legacy user passwords to salted hashes.");
+                            Save();
+                        }
                     }
                 }
             }

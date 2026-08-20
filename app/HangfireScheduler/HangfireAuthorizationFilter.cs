@@ -1,5 +1,6 @@
 using Hangfire.Annotations;
 using Hangfire.Dashboard;
+using Lebiru.FileService.Models;
 
 namespace Lebiru.FileService.HangfireScheduler
 {
@@ -18,7 +19,7 @@ namespace Lebiru.FileService.HangfireScheduler
       var httpContext = context.GetHttpContext();
 
       // Use the same authentication as the rest of the application
-      return httpContext.User.Identity?.IsAuthenticated ?? false;
+      return httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole(UserRoles.Admin);
     }
   }
 }

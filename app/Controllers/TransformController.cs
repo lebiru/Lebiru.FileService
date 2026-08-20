@@ -7,6 +7,7 @@ using Hangfire.Console;
 using Hangfire.Console.Progress;
 using Hangfire.Server;
 using Lebiru.FileService.Models;
+using Lebiru.FileService.Services;
 using Microsoft.AspNetCore.Authorization;
 using FileInfo = Lebiru.FileService.Models.FileInfo;
 
@@ -16,7 +17,7 @@ namespace Lebiru.FileService.Controllers
   /// Controller for managing file transformations
   /// </summary>
   [Route("Transform")]
-  [Authorize]
+  [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
   public class TransformController : Controller
   {
     private readonly IHttpClientFactory? _httpClientFactory;
@@ -29,6 +30,8 @@ namespace Lebiru.FileService.Controllers
     private readonly ILogger<TransformController> _logger;
     private readonly string _serviceUrl;
     private readonly string _appRootPath;
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+    private const int MaxRegexPatternLength = 1000;
 
     /// <summary>
     /// Constructor for TransformController
@@ -482,7 +485,8 @@ namespace Lebiru.FileService.Controllers
         var fileContent = await System.IO.File.ReadAllTextAsync(testFile);
 
         // Apply the regex pattern
-        var regex = new Regex(transform.RegexPattern);
+        ValidateRegexPattern(transform.RegexPattern);
+        var regex = new Regex(transform.RegexPattern, RegexOptions.CultureInvariant, RegexTimeout);
         var match = regex.Match(fileContent);
 
         if (match.Success)
@@ -613,7 +617,8 @@ namespace Lebiru.FileService.Controllers
             var fileContent = await System.IO.File.ReadAllTextAsync(file);
 
             // Apply regex pattern
-            var regex = new Regex(source.RegexPattern);
+            ValidateRegexPattern(source.RegexPattern);
+            var regex = new Regex(source.RegexPattern, RegexOptions.CultureInvariant, RegexTimeout);
             var matches = regex.Matches(fileContent);
 
             if (matches.Count > 0)
@@ -632,8 +637,10 @@ namespace Lebiru.FileService.Controllers
               else
               {
                 // Create a new output file directly in the uploads folder with a clear naming convention
-                var outputFileName = $"transformed_{source.Title.Replace(" ", "_")}_{Path.GetFileNameWithoutExtension(file)}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt";
-                outputFilePath = Path.Combine(outputPath, outputFileName);
+                var safeTitle = string.Concat(source.Title.Select(character =>
+                  Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Replace(" ", "_");
+                var outputFileName = $"transformed_{safeTitle}_{Path.GetFileNameWithoutExtension(file)}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt";
+                outputFilePath = FilePathSecurity.ResolveFile(outputPath, outputFileName);
                 _logger.LogInformation("Creating new transformation output file: {OutputPath}", outputFilePath);
                 context?.WriteLine($"  📝 Creating new file: {outputFileName}");
               }
@@ -1103,8 +1110,7 @@ namespace Lebiru.FileService.Controllers
 
         foreach (var filename in request.Files)
         {
-          string filePath = Path.Combine(UploadsFolder, filename);
-          string fullPath = Path.Combine(_appRootPath, filePath);
+          string fullPath = FilePathSecurity.ResolveFile(Path.Combine(_appRootPath, UploadsFolder), filename);
 
           if (!System.IO.File.Exists(fullPath))
           {
@@ -1124,7 +1130,9 @@ namespace Lebiru.FileService.Controllers
           string content = await System.IO.File.ReadAllTextAsync(fullPath);
 
           // Apply the regex transformation
-          string transformedContent = Regex.Replace(content, request.Pattern, request.Replacement);
+          ValidateRegexPattern(request.Pattern);
+          string transformedContent = Regex.Replace(content, request.Pattern, request.Replacement,
+            RegexOptions.CultureInvariant, RegexTimeout);
 
           // If content changed, save the transformed file
           if (content != transformedContent)
@@ -1174,6 +1182,12 @@ namespace Lebiru.FileService.Controllers
 
     private HttpClient CreateHttpClient() =>
       _httpClientFactory?.CreateClient("ExternalFetch") ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+    private static void ValidateRegexPattern(string pattern)
+    {
+      if (string.IsNullOrWhiteSpace(pattern) || pattern.Length > MaxRegexPatternLength)
+        throw new ArgumentException($"Regex patterns must contain between 1 and {MaxRegexPatternLength} characters.", nameof(pattern));
+    }
 
     private bool IsTextFile(string extension)
     {

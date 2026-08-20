@@ -1,0 +1,99 @@
+@model Lebiru.FileService.Services.TelemetrySnapshot
+@{
+    ViewData["Title"] = "Telemetry";
+    Layout = "_Layout";
+}
+
+<div class="telemetry-page" aria-labelledby="telemetry-title">
+    <div class="telemetry-heading">
+        <div>
+            <span class="eyebrow">Observability</span>
+            <h1 id="telemetry-title">Application telemetry</h1>
+            <p>Live request, reliability, latency, and runtime signals from OpenTelemetry.</p>
+        </div>
+        <div class="live-indicator" role="status"><span></span> Live · refreshes every 5 seconds</div>
+    </div>
+
+    <div class="telemetry-kpis" aria-label="Current telemetry summary">
+        <article class="telemetry-kpi"><span>Requests</span><strong id="totalRequests">@Model.TotalRequests</strong><small>since startup</small></article>
+        <article class="telemetry-kpi"><span>Average latency</span><strong id="averageDuration">@Model.AverageDurationMs.ToString("F1") ms</strong><small>all requests</small></article>
+        <article class="telemetry-kpi"><span>Error rate</span><strong id="errorRate">@Model.ErrorRate.ToString("F2")%</strong><small id="totalErrors">@Model.TotalErrors server errors</small></article>
+        <article class="telemetry-kpi"><span>Managed memory</span><strong id="managedMemory">@((Model.ManagedMemoryBytes / 1048576d).ToString("F1")) MB</strong><small id="activeRequests">@Model.ActiveRequests active requests</small></article>
+    </div>
+
+    <section class="telemetry-chart-card" aria-labelledby="traffic-title">
+        <div class="chart-heading"><div><h2 id="traffic-title">Traffic &amp; reliability</h2><p>Requests and server errors per minute</p></div><div class="chart-legend"><span><i class="request-dot"></i>Requests</span><span><i class="error-dot"></i>Errors</span></div></div>
+        <div class="chart-wrap"><canvas id="trafficChart" role="img" aria-label="Line chart showing requests and server errors per minute for the last thirty minutes.">Requests and server errors time series.</canvas></div>
+    </section>
+
+    <section class="telemetry-chart-card" aria-labelledby="latency-title">
+        <div class="chart-heading"><div><h2 id="latency-title">Request latency</h2><p>Average response time per minute</p></div><strong class="chart-value" id="latestLatency">—</strong></div>
+        <div class="chart-wrap chart-wrap-small"><canvas id="latencyChart" role="img" aria-label="Area chart showing average response time in milliseconds per minute.">Average response-time time series.</canvas></div>
+    </section>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const initial = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+    const css = getComputedStyle(document.documentElement);
+    const gridColor = css.getPropertyValue('--line').trim() || '#e4e9f2';
+    const textColor = css.getPropertyValue('--muted').trim() || '#667085';
+    const sharedOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 350 },
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#172033', padding: 11, cornerRadius: 9, titleFont: { weight: '600' } }
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: textColor, maxTicksLimit: 8, maxRotation: 0 } },
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } }
+        }
+    };
+    const trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [
+            { label: 'Requests', data: [], borderColor: '#635bff', backgroundColor: 'rgba(99,91,255,.1)', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, tension: .35, fill: true },
+            { label: 'Server errors', data: [], borderColor: '#e5484d', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, tension: .35 }
+        ]},
+        options: sharedOptions
+    });
+    const latencyChart = new Chart(document.getElementById('latencyChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [
+            { label: 'Average latency (ms)', data: [], borderColor: '#28a8cc', backgroundColor: 'rgba(40,168,204,.14)', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, tension: .35, fill: true }
+        ]},
+        options: { ...sharedOptions, scales: { ...sharedOptions.scales, y: { ...sharedOptions.scales.y, ticks: { ...sharedOptions.scales.y.ticks, callback: value => `${value} ms` } } } }
+    });
+    function render(snapshot) {
+        const series = snapshot.series || [];
+        document.getElementById('totalRequests').textContent = snapshot.totalRequests.toLocaleString();
+        document.getElementById('averageDuration').textContent = `${snapshot.averageDurationMs.toFixed(1)} ms`;
+        document.getElementById('errorRate').textContent = `${snapshot.errorRate.toFixed(2)}%`;
+        document.getElementById('totalErrors').textContent = `${snapshot.totalErrors} server errors`;
+        document.getElementById('managedMemory').textContent = `${(snapshot.managedMemoryBytes / 1048576).toFixed(1)} MB`;
+        document.getElementById('activeRequests').textContent = `${snapshot.activeRequests} active requests`;
+
+        const labels = series.map(point => new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        const requests = series.map(point => point.requests), errors = series.map(point => point.errors);
+        const latency = series.map(point => point.averageDurationMs);
+        trafficChart.data.labels = labels;
+        trafficChart.data.datasets[0].data = requests;
+        trafficChart.data.datasets[1].data = errors;
+        trafficChart.update();
+        latencyChart.data.labels = labels;
+        latencyChart.data.datasets[0].data = latency;
+        latencyChart.update();
+        const latest = [...latency].reverse().find(value => value > 0) || 0;
+        document.getElementById('latestLatency').textContent = `${latest.toFixed(1)} ms`;
+    }
+    const refresh = async () => { try { const response = await fetch('/Telemetry/snapshot?minutes=30', { cache: 'no-store' }); if (response.ok) render(await response.json()); } catch { } };
+    render(initial);
+    window.setInterval(refresh, 5000);
+})();
+</script>
+}
