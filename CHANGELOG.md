@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.14] - 2026-08-20
+
+### Added
+
+- Added dual container publishing to Docker Hub and GitHub Container Registry so images appear under GitHub Packages.
+- Added automatic GitHub Release creation for pushed `v*` tags, with prerelease detection for hyphenated semantic versions.
+
 ## [0.0.1-preview.13] - 2026-08-20
 
 ### Added

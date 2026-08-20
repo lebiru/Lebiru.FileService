@@ -17,6 +17,7 @@ concurrency:
 
 env:
   IMAGE_NAME: lebiru/fileservice
+  GHCR_IMAGE_NAME: ghcr.io/lebiru/fileservice
 
 jobs:
   test:
@@ -47,6 +48,9 @@ jobs:
     name: Build and publish image
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Check out repository
@@ -64,11 +68,20 @@ jobs:
           username: lebiru
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate Docker tags and labels
         id: metadata
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.IMAGE_NAME }}
+            ${{ env.GHCR_IMAGE_NAME }}
           tags: |
             type=raw,value=edge,enable={{is_default_branch}}
             type=semver,pattern={{version}}
@@ -98,3 +111,31 @@ jobs:
           readme-filepath: ./README.md
           short-description: Modern, secure, and observable ASP.NET Core file service
           enable-url-completion: true
+
+  release:
+    name: Create GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create release from tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --generate-notes \
+              --prerelease \
+              --title "$GITHUB_REF_NAME"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --generate-notes \
+              --latest \
+              --title "$GITHUB_REF_NAME"
+          fi
