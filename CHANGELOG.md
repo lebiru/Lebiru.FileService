@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.11] - 2026-08-19
+
+### Changed
+
+- Updated the README dashboard screenshot to show the current Felix File Service interface and sortable file grid.
+
 ## [0.0.1-preview.10] - 2026-08-19
 
 ### Added
