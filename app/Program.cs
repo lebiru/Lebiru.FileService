@@ -75,8 +75,10 @@ builder.Services.AddDataProtection()
     .SetApplicationName("Lebiru.FileService")
     .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
 
-var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ??
-                   Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+var configuredOtlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
+var otlpEndpoint = string.IsNullOrWhiteSpace(configuredOtlpEndpoint)
+    ? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")
+    : configuredOtlpEndpoint;
 var useConsoleExporter = builder.Configuration.GetValue("OpenTelemetry:UseConsoleExporter", true);
 var serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ??
                   builder.Configuration["OpenTelemetry:ServiceName"] ??

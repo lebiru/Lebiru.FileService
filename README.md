@@ -202,6 +202,8 @@ dotnet run --project app/Lebiru.FileService.AppHost
 
 The command launches Felix File Service at `http://localhost:3002` and opens the authenticated Aspire dashboard at `http://localhost:18888`. Use its Resources, Structured Logs, Traces, and Metrics pages to inspect the running application. The dashboard login URL and temporary browser token are printed in the terminal. Standalone application startup remains available at `http://localhost:3000`, so both modes can run side by side.
 
+Aspire injects its authenticated OTLP endpoint automatically. Traces and structured logs are exported within about one second, and metrics every five seconds. Open the Felix endpoint from the Resources page or browse `http://localhost:3002/health/live` to generate an initial request trace.
+
 By default telemetry is written through the console exporter. To send OTLP data to an OpenTelemetry Collector or compatible backend, set an endpoint and optionally disable console output:
 
 ```bash

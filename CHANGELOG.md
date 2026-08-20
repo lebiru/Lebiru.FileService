@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.18] - 2026-08-20
+
+### Fixed
+
+- Fixed empty configured OTLP endpoints incorrectly overriding Aspire's injected `OTEL_EXPORTER_OTLP_ENDPOINT`, which left the Structured Logs, Traces, and Metrics dashboard pages empty.
+- Tuned Aspire development export intervals so logs and traces arrive within about one second and metrics within five seconds.
+
 ## [0.0.1-preview.17] - 2026-08-20
 
 ### Fixed
