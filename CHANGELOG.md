@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.21] - 2026-08-20
+
+### Changed
+
+- Upgraded the .NET Aspire AppHost SDK and dashboard from 13.4.6 to 13.5.0, including its CLI bundle execution model and deterministic AppHost discovery configuration.
+
 ## [0.0.1-preview.20] - 2026-08-20
 
 ### Added
