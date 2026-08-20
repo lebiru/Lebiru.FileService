@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.17] - 2026-08-20
+
+### Fixed
+
+- Updated the repository and GitHub Actions SDK pin to the current .NET 10.0.400 release so local SDK resolution succeeds after installing the latest .NET 10 SDK.
+- Documented the correct hot-reload command: `dotnet watch --project app run`.
+
 ## [0.0.1-preview.16] - 2026-08-20
 
 ### Changed
