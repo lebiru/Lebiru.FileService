@@ -185,7 +185,15 @@ The application provides ETL (Extract, Transform, Load) capabilities for process
 
 ### OpenTelemetry
 
-The application exports ASP.NET Core request traces, outbound HTTP traces, runtime metrics, and custom request/error/latency metrics. The built-in dashboard is available at `/Telemetry` after login.
+The application exports structured logs, ASP.NET Core request traces, outbound HTTP traces, runtime metrics, and custom request/error/latency metrics. The built-in dashboard is available at `/Telemetry` after login.
+
+For the full local debugging experience, start the Aspire AppHost:
+
+```bash
+dotnet run --project app/Lebiru.FileService.AppHost
+```
+
+The command launches Felix File Service at `http://localhost:3002` and opens the authenticated Aspire dashboard at `http://localhost:18888`. Use its Resources, Structured Logs, Traces, and Metrics pages to inspect the running application. The dashboard login URL and temporary browser token are printed in the terminal. Standalone application startup remains available at `http://localhost:3000`, so both modes can run side by side.
 
 By default telemetry is written through the console exporter. To send OTLP data to an OpenTelemetry Collector or compatible backend, set an endpoint and optionally disable console output:
 
@@ -194,7 +202,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 OpenTelemetry__UseConsoleExporter=false
 ```
 
-The service name defaults to `Lebiru.FileService` and can be changed with `OpenTelemetry__ServiceName`.
+The service name defaults to `Lebiru.FileService` and can be changed with `OpenTelemetry__ServiceName` or the standard `OTEL_SERVICE_NAME` environment variable. Aspire supplies its OTLP endpoint and authentication headers automatically.
 
 ### Docker Deployment
 

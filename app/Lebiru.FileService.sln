@@ -5,6 +5,8 @@ VisualStudioVersion = 17.9.34616.47
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lebiru.FileService", "Lebiru.FileService.csproj", "{77723A89-B8B7-4887-BB5C-1D09D95D11AA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lebiru.FileService.AppHost", "Lebiru.FileService.AppHost\Lebiru.FileService.AppHost.csproj", "{4F995965-BB42-48A2-88B7-B16E7BB89D79}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{77723A89-B8B7-4887-BB5C-1D09D95D11AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{77723A89-B8B7-4887-BB5C-1D09D95D11AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{77723A89-B8B7-4887-BB5C-1D09D95D11AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4F995965-BB42-48A2-88B7-B16E7BB89D79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F995965-BB42-48A2-88B7-B16E7BB89D79}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F995965-BB42-48A2-88B7-B16E7BB89D79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F995965-BB42-48A2-88B7-B16E7BB89D79}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.15] - 2026-08-20
+
+### Added
+
+- Added a .NET Aspire AppHost that launches Felix File Service with an authenticated local diagnostics dashboard.
+- Added OTLP structured-log export alongside the existing traces, runtime metrics, and custom application metrics.
+
+### Changed
+
+- OpenTelemetry now honors the standard `OTEL_SERVICE_NAME` environment variable and automatically uses Aspire-provided OTLP configuration.
+
 ## [0.0.1-preview.14] - 2026-08-20
 
 ### Added

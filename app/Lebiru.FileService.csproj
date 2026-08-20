@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>0.0.1-preview.14</Version>
+    <Version>0.0.1-preview.15</Version>
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
@@ -39,6 +39,14 @@
   <ItemGroup>
     <Folder Include="app-data\" />
     <Folder Include="uploads\" />
+  </ItemGroup>
+
+  <!-- The AppHost is nested for solution organization; keep its sources out of this web project. -->
+  <ItemGroup>
+    <Compile Remove="Lebiru.FileService.AppHost\**\*.cs" />
+    <Content Remove="Lebiru.FileService.AppHost\**\*" />
+    <EmbeddedResource Remove="Lebiru.FileService.AppHost\**\*" />
+    <None Remove="Lebiru.FileService.AppHost\**\*" />
   </ItemGroup>
 
   <ItemGroup>

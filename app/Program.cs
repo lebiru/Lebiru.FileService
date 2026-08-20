@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Hangfire.Storage.SQLite;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Diagnostics;
@@ -77,16 +78,30 @@ builder.Services.AddDataProtection()
 var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ??
                    Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
 var useConsoleExporter = builder.Configuration.GetValue("OpenTelemetry:UseConsoleExporter", true);
+var serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ??
+                  builder.Configuration["OpenTelemetry:ServiceName"] ??
+                  "Lebiru.FileService";
+var hasOtlpEndpoint = Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var parsedOtlpEndpoint);
+if (hasOtlpEndpoint)
+{
+    builder.Logging.AddOpenTelemetry(logging =>
+    {
+        logging.IncludeFormattedMessage = true;
+        logging.IncludeScopes = true;
+        logging.AddOtlpExporter(options => options.Endpoint = parsedOtlpEndpoint!);
+    });
+}
+
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(
-        serviceName: builder.Configuration["OpenTelemetry:ServiceName"] ?? "Lebiru.FileService",
+        serviceName: serviceName,
         serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString()))
     .WithTracing(tracing =>
     {
         tracing.AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation();
-        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
-            tracing.AddOtlpExporter(options => options.Endpoint = endpoint);
+        if (hasOtlpEndpoint)
+            tracing.AddOtlpExporter(options => options.Endpoint = parsedOtlpEndpoint!);
         else if (useConsoleExporter)
             tracing.AddConsoleExporter();
     })
@@ -96,8 +111,8 @@ builder.Services.AddOpenTelemetry()
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddRuntimeInstrumentation();
-        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
-            metrics.AddOtlpExporter(options => options.Endpoint = endpoint);
+        if (hasOtlpEndpoint)
+            metrics.AddOtlpExporter(options => options.Endpoint = parsedOtlpEndpoint!);
         else if (useConsoleExporter)
             metrics.AddConsoleExporter();
     });
