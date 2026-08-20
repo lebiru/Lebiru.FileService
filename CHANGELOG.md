@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.8] - 2026-08-19
+
+### Changed
+
+- Renamed the user-facing application brand from Lebiru File Service to Felix File Service across navigation, login, footer, API documentation, background-job dashboard, page titles, and generated archive names.
+
 ## [0.0.1-preview.7] - 2026-08-19
 
 ### Added

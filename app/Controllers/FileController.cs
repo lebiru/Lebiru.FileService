@@ -745,7 +745,7 @@ namespace Lebiru.FileService.Controllers
                     try { System.IO.File.Delete(tempPath); } catch (IOException) { }
                     return Task.CompletedTask;
                 });
-                return PhysicalFile(tempPath, "application/zip", "LebiruFiles.zip");
+                return PhysicalFile(tempPath, "application/zip", "FelixFiles.zip");
             }
             catch
             {

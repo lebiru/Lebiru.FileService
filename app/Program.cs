@@ -133,12 +133,12 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Lebiru.FileService API",
+        Title = "Felix File Service API",
         Version = "v1",
         Description = "API for managing and serving files",
         Contact = new OpenApiContact
         {
-            Name = "Lebiru",
+            Name = "Felix File Service",
             Url = new Uri("https://github.com/lebiru")
         }
     });
@@ -238,8 +238,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Lebiru.FileService v1");
-        c.DocumentTitle = "Lebiru.FileService API Documentation";
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Felix File Service v1");
+        c.DocumentTitle = "Felix File Service API Documentation";
         c.InjectStylesheet("/swagger-ui/custom.css");
         c.DefaultModelExpandDepth(2);
         c.DefaultModelsExpandDepth(-1);
@@ -291,7 +291,7 @@ app.UseAuthorization();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    DashboardTitle = "Lebiru.FileService - Background Jobs",
+    DashboardTitle = "Felix File Service - Background Jobs",
     AppPath = "/File/Home",    // Redirects "Back to Site" link
     Authorization = new[] { new HangfireAuthorizationFilter() }
 });
