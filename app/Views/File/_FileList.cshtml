@@ -128,6 +128,40 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
+    .sort-header {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        color: inherit;
+        cursor: pointer;
+        display: inline-flex;
+        font: inherit;
+        font-weight: 600;
+        gap: 0.4rem;
+        justify-content: flex-start;
+        padding: 0;
+        text-align: left;
+        white-space: nowrap;
+        width: 100%;
+    }
+
+    .sort-header i {
+        color: #665cff;
+        flex: 0 0 auto;
+    }
+
+    .sort-header:hover,
+    .sort-header:focus-visible {
+        color: #4f46e5;
+        text-decoration: none;
+    }
+
+    .sort-header:focus-visible {
+        border-radius: 4px;
+        outline: 2px solid #665cff;
+        outline-offset: 3px;
+    }
+
     .file-table tr:nth-child(even) {
         background-color: #f9f9f9;
     }
@@ -368,17 +402,25 @@
     }
 </style>
 
+@{
+    var currentSort = ViewBag.Sort as string ?? "upload_desc";
+    string AriaSort(string column) => currentSort == $"{column}_asc" ? "ascending" :
+        currentSort == $"{column}_desc" ? "descending" : "none";
+    string SortIcon(string column) => currentSort == $"{column}_asc" ? "fa-sort-up" :
+        currentSort == $"{column}_desc" ? "fa-sort-down" : "fa-sort";
+}
+
 <div class="file-list">
     <table class="file-table">
         <thead>
             <tr>
                 <th class="col-select">🔘</th>
-                <th class="col-filename">File Name</th>
-                <th class="col-size">Size</th>
-                <th class="col-time">Upload Time</th>
-                <th class="col-expiry">Expiry Time</th>
-                <th class="col-server">Server Name</th>
-                <th class="col-owner">Owner</th>
+                <th class="col-filename" aria-sort="@AriaSort("name")"><button type="button" class="sort-header" onclick="sortFileGrid('name')">File Name <i class="fas @SortIcon("name")" aria-hidden="true"></i></button></th>
+                <th class="col-size" aria-sort="@AriaSort("size")"><button type="button" class="sort-header" onclick="sortFileGrid('size')">Size <i class="fas @SortIcon("size")" aria-hidden="true"></i></button></th>
+                <th class="col-time" aria-sort="@AriaSort("upload")"><button type="button" class="sort-header" onclick="sortFileGrid('upload')">Upload Time <i class="fas @SortIcon("upload")" aria-hidden="true"></i></button></th>
+                <th class="col-expiry" aria-sort="@AriaSort("expiry")"><button type="button" class="sort-header" onclick="sortFileGrid('expiry')">Expiry Time <i class="fas @SortIcon("expiry")" aria-hidden="true"></i></button></th>
+                <th class="col-server" aria-sort="@AriaSort("server")"><button type="button" class="sort-header" onclick="sortFileGrid('server')">Server Name <i class="fas @SortIcon("server")" aria-hidden="true"></i></button></th>
+                <th class="col-owner" aria-sort="@AriaSort("owner")"><button type="button" class="sort-header" onclick="sortFileGrid('owner')">Owner <i class="fas @SortIcon("owner")" aria-hidden="true"></i></button></th>
                 <th class="col-preview">Preview</th>
                 <th class="col-actions">Actions</th>
             </tr>

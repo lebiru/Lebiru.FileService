@@ -224,10 +224,22 @@ namespace Lebiru.FileService.Controllers
 
             var fileInfos = FileInfos;
 
+            sort = sort switch
+            {
+                "name_asc" or "name_desc" or
+                "size_asc" or "size_desc" or
+                "upload_asc" or "upload_desc" or
+                "expiry_asc" or "expiry_desc" or
+                "server_asc" or "server_desc" or
+                "owner_asc" or "owner_desc" => sort,
+                _ => "upload_desc"
+            };
+
             // Apply sorting
             fileInfos = sort switch
             {
                 "upload_asc" => fileInfos.OrderBy(f => f.UploadTime).ToList(),
+                "upload_desc" => fileInfos.OrderByDescending(f => f.UploadTime).ToList(),
                 "name_asc" => fileInfos.OrderBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
                 "name_desc" => fileInfos.OrderByDescending(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
                 "size_asc" => fileInfos.OrderBy(f => f.FileSize).ToList(),
@@ -235,6 +247,14 @@ namespace Lebiru.FileService.Controllers
                 // Expiry: Soonest first puts null (Never) at the end; Latest first treats null as latest (top)
                 "expiry_asc" => fileInfos.OrderBy(f => f.ExpiryTime ?? DateTime.MaxValue).ToList(),
                 "expiry_desc" => fileInfos.OrderByDescending(f => f.ExpiryTime ?? DateTime.MaxValue).ToList(),
+                "server_asc" => fileInfos.OrderBy(_ => Environment.MachineName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
+                "server_desc" => fileInfos.OrderByDescending(_ => Environment.MachineName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
+                "owner_asc" => fileInfos.OrderBy(f => f.Owner ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
+                "owner_desc" => fileInfos.OrderByDescending(f => f.Owner ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(f => f.FileName, StringComparer.OrdinalIgnoreCase).ToList(),
                 _ => fileInfos.OrderByDescending(f => f.UploadTime).ToList(), // upload_desc default
             };
 
@@ -259,6 +279,7 @@ namespace Lebiru.FileService.Controllers
                 .ToList();
 
             ViewBag.Pagination = pagination;
+            ViewBag.Sort = sort;
             return PartialView("_FileList", paginatedFiles);
         }
 

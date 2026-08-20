@@ -126,6 +126,57 @@ namespace Lebiru.FileService.Tests.Controllers
         }
 
         [Theory]
+        [InlineData("name_asc", "Alpha.txt")]
+        [InlineData("name_desc", "Zulu.txt")]
+        [InlineData("size_asc", "Alpha.txt")]
+        [InlineData("size_desc", "Zulu.txt")]
+        [InlineData("upload_asc", "Alpha.txt")]
+        [InlineData("upload_desc", "Zulu.txt")]
+        [InlineData("expiry_asc", "Alpha.txt")]
+        [InlineData("expiry_desc", "Zulu.txt")]
+        [InlineData("server_asc", "Alpha.txt")]
+        [InlineData("server_desc", "Alpha.txt")]
+        [InlineData("owner_asc", "Alpha.txt")]
+        [InlineData("owner_desc", "Zulu.txt")]
+        public void Given_SortColumn_When_ListingFiles_Then_ReturnsExpectedOrder(string sort, string expectedFirst)
+        {
+            var files = new List<Lebiru.FileService.Models.FileInfo>
+            {
+                new()
+                {
+                    FileName = "Zulu.txt", FilePath = "Zulu.txt", FileSize = 200,
+                    UploadTime = new DateTime(2026, 2, 1), ExpiryTime = null, Owner = "Zoe"
+                },
+                new()
+                {
+                    FileName = "Alpha.txt", FilePath = "Alpha.txt", FileSize = 100,
+                    UploadTime = new DateTime(2026, 1, 1), ExpiryTime = new DateTime(2027, 1, 1), Owner = "Alice"
+                }
+            };
+            var metadataStore = new Mock<IFileMetadataStore>();
+            metadataStore.Setup(store => store.GetAll()).Returns(files);
+            var mimeValidation = new Mock<IMimeValidationService>();
+            var controller = new FileController(
+                new CleanupJob(_tempPath, _userServiceMock.Object),
+                _backgroundJobClientMock.Object,
+                _configMock.Object,
+                _metricsServiceMock.Object,
+                _userServiceMock.Object,
+                mimeValidation.Object,
+                Mock.Of<ILogger<FileController>>(),
+                metadataStore.Object)
+            {
+                ControllerContext = _controller.ControllerContext
+            };
+
+            var result = Assert.IsType<PartialViewResult>(controller.List(1, 10, sort));
+            var model = Assert.IsType<List<Lebiru.FileService.Models.FileInfo>>(result.Model);
+
+            Assert.Equal(expectedFirst, model[0].FileName);
+            Assert.Equal(sort, result.ViewData["Sort"]);
+        }
+
+        [Theory]
         [InlineData(ExpiryOption.Never)]      // No expiry
         [InlineData(ExpiryOption.OneHour)]    // 1 hour
         [InlineData(ExpiryOption.OneDay)]     // 24 hours

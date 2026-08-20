@@ -422,34 +422,6 @@
             color: #ff4d4d;
         }
 
-        /* Sort controls aligned top-right above the table */
-        .file-list-controls {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 8px;
-            margin: 8px 0 6px 0;
-        }
-
-        .sort-select {
-            background-color: inherit;
-            color: inherit;
-            border: 1px solid rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-            padding: 6px 10px;
-            font-size: 14px;
-            min-width: 220px;
-        }
-
-        .sort-select-label{
-            margin-top: 10px;
-        }
-
-        body.dark-mode .sort-select {
-            background-color: #2d2d2d;
-            border-color: rgba(255, 255, 255, 0.2);
-            color: white;
-        }
     </style>
 </head>
 
@@ -600,21 +572,6 @@
         }
     </div>
 
-    <!-- Sort controls (top-right, above the table) -->
-    <div class="file-list-controls">
-        <label class="sort-select-label" for="sortSelect">Sort:</label>
-        <select id="sortSelect" class="sort-select">
-            <option value="upload_desc">Upload Date (Newest First)</option>
-            <option value="upload_asc">Upload Date (Oldest First)</option>
-            <option value="name_asc">FileName (A-Z)</option>
-            <option value="name_desc">FileName (Z-A)</option>
-            <option value="size_desc">Size (Largest to Smallest)</option>
-            <option value="size_asc">Size (Smallest to Largest)</option>
-            <option value="expiry_asc">Expiry Time (Soonest to Latest)</option>
-            <option value="expiry_desc">Expiry Time (Latest to Soonest)</option>
-        </select>
-    </div>
-
     <div id="fileList" data-current-sort="@ViewBag.Sort">
         @await Html.PartialAsync("_FileList", Model)
     </div>
@@ -685,20 +642,14 @@
                 .catch(error => console.error('Error loading page:', error));
         }
 
-        // Initialize sort select and handle changes
-        (function(){
-            const sortSelect = document.getElementById('sortSelect');
-            if (sortSelect) {
-                // Set initial value
-                sortSelect.value = currentSort;
-                sortSelect.addEventListener('change', function(){
-                    currentSort = this.value;
-                    const list = document.getElementById('fileList');
-                    if (list) list.dataset.currentSort = currentSort;
-                    loadPage(1);
-                });
-            }
-        })();
+        function sortFileGrid(column) {
+            const [activeColumn, activeDirection] = currentSort.split('_');
+            const nextDirection = activeColumn === column && activeDirection === 'asc' ? 'desc' : 'asc';
+            currentSort = `${column}_${nextDirection}`;
+            const list = document.getElementById('fileList');
+            if (list) list.dataset.currentSort = currentSort;
+            loadPage(1);
+        }
 
         function goToPage(page) {
             if (page >= 1 && page <= totalPages) {
@@ -825,9 +776,6 @@
                     currentSort = urlParams.get('sort');
                     console.log('Using sort from URL:', currentSort);
                     
-                    // Update sort dropdown if it exists
-                    const sortSelect = document.getElementById('sortSelect');
-                    if (sortSelect) sortSelect.value = currentSort;
                 }
                 
                 // Calculate total pages which will also update the pagination display

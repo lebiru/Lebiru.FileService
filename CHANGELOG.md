@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.9] - 2026-08-19
+
+### Changed
+
+- Replaced the home-page sort dropdown with accessible, bidirectional sortable headers for file name, size, upload time, expiry time, server name, and owner.
+
 ## [0.0.1-preview.8] - 2026-08-19
 
 ### Changed
