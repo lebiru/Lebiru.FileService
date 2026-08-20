@@ -852,11 +852,6 @@ namespace Lebiru.FileService.Controllers
         {
           using (var httpClient = CreateHttpClient())
           {
-            if (System.Net.ServicePointManager.DefaultConnectionLimit < 10)
-            {
-              System.Net.ServicePointManager.DefaultConnectionLimit = 10;
-            }
-
             var syncUrl = $"{_serviceUrl}/File/SyncFileMetadata";
             _logger.LogInformation("Syncing file metadata at {Url}", syncUrl);
             context?.WriteLine("📊 Syncing file metadata to ensure files appear in Dashboard...");

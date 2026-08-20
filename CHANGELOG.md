@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.16] - 2026-08-20
+
+### Changed
+
+- Migrated the application, test suite, and Aspire AppHost from .NET 8 to .NET 10 LTS.
+- Updated the Aspire development dashboard to 13.4.6 and the .NET test SDK to 18.8.1.
+- Updated Docker build/runtime images and GitHub Actions test tooling to .NET 10.
+- Added an SDK pin for reproducible .NET 10.0.302 builds.
+- Removed obsolete `System.Net.Http` and `System.Text.RegularExpressions` package overrides in favor of the serviced .NET 10 framework implementations.
+- Removed the ineffective legacy `ServicePointManager` connection-limit setting; HTTP connections remain managed by `IHttpClientFactory`.
+
 ## [0.0.1-preview.15] - 2026-08-20
 
 ### Added

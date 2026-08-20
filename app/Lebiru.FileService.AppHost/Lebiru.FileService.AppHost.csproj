@@ -1,22 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAspireHost>true</IsAspireHost>
-    <AspireHostingSDKVersion>8.2.2</AspireHostingSDKVersion>
-    <DcpDir>$(PkgAspire_Hosting_Orchestration_win-x64)\tools\</DcpDir>
-    <DcpExtensionsDir>$(DcpDir)ext\</DcpExtensionsDir>
-    <DcpBinDir>$(DcpExtensionsDir)bin\</DcpBinDir>
-    <DcpCliPath>$(DcpDir)dcp.exe</DcpCliPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="8.2.2" />
-    <PackageReference Include="Aspire.Dashboard.Sdk.win-x64" Version="8.2.2" GeneratePathProperty="true" PrivateAssets="all" />
-    <PackageReference Include="Aspire.Hosting.Orchestration.win-x64" Version="8.2.2" GeneratePathProperty="true" PrivateAssets="all" />
     <ProjectReference Include="..\Lebiru.FileService.csproj" IsAspireProjectResource="true" />
   </ItemGroup>
 

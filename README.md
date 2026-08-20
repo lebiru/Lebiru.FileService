@@ -52,10 +52,11 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 To run the application locally, follow these steps:
 
 1. **Clone this repository** to your local machine.
-2. **Open the solution** in Visual Studio or your preferred IDE.
-3. **Build the solution** to restore dependencies.
-4. **Run the application** using the IDE's built-in tools or command-line interface.
-5. **Access the application** through the provided URL (e.g., `http://localhost:port`).
+2. **Install the .NET 10 SDK** (`10.0.302` or a newer servicing patch).
+3. **Open the solution** in Visual Studio or your preferred IDE.
+4. **Build the solution** to restore dependencies.
+5. **Run the application** using the IDE's built-in tools or command-line interface.
+6. **Access the application** through the provided URL (e.g., `http://localhost:port`).
 
 ## Testing
 
