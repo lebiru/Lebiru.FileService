@@ -13,6 +13,8 @@ using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.Dynamic;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 /// <summary>
 /// Model class for pagination request data
@@ -51,6 +53,8 @@ namespace Lebiru.FileService.Controllers
         private readonly IUserService _userService;
         private readonly IMimeValidationService _mimeValidationService;
         private readonly ILogger<FileController> _logger;
+        private readonly IFileMetadataStore? _metadataStore;
+        private readonly IHttpClientFactory? _httpClientFactory;
 
         private static readonly object _fileLock = new object();
 
@@ -60,6 +64,7 @@ namespace Lebiru.FileService.Controllers
             {
                 lock (_fileLock)
                 {
+                    if (_metadataStore != null) return _metadataStore.GetAll();
                     if (!System.IO.File.Exists(_fileInfoPath))
                     {
                         return new List<Models.FileInfo>();
@@ -79,6 +84,11 @@ namespace Lebiru.FileService.Controllers
             {
                 lock (_fileLock)
                 {
+                    if (_metadataStore != null)
+                    {
+                        _metadataStore.Replace(value);
+                        return;
+                    }
                     var json = System.Text.Json.JsonSerializer.Serialize(value);
                     System.IO.File.WriteAllText(_fileInfoPath, json);
                 }
@@ -96,6 +106,8 @@ namespace Lebiru.FileService.Controllers
         /// <param name="userService">The user management service</param>
         /// <param name="mimeValidationService">Service for validating file MIME types</param>
         /// <param name="logger">The logger service</param>
+        /// <param name="metadataStore">The cached metadata store, when supplied by dependency injection</param>
+        /// <param name="httpClientFactory">Factory for pooled outbound HTTP connections</param>
         public FileController(
             CleanupJob cleanupJob,
 
@@ -104,7 +116,9 @@ namespace Lebiru.FileService.Controllers
             IApiMetricsService metricsService,
             IUserService userService,
             IMimeValidationService mimeValidationService,
-            ILogger<FileController> logger)
+            ILogger<FileController> logger,
+            IFileMetadataStore? metadataStore = null,
+            IHttpClientFactory? httpClientFactory = null)
         {
             _cleanupJob = cleanupJob;
 
@@ -115,11 +129,13 @@ namespace Lebiru.FileService.Controllers
                 Directory.CreateDirectory(dataDir);
             }
             _fileInfoPath = Path.Combine(dataDir, "fileInfo.json");
-            _config = configuration.GetSection("FileService").Get<FileServiceConfig>() ?? new FileServiceConfig();
+            _config = configuration.GetSection("FileService")?.Get<FileServiceConfig>() ?? new FileServiceConfig();
             _metricsService = metricsService ?? throw new ArgumentNullException(nameof(metricsService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _mimeValidationService = mimeValidationService ?? throw new ArgumentNullException(nameof(mimeValidationService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _metadataStore = metadataStore;
+            _httpClientFactory = httpClientFactory;
         }
 
         /// <summary>
@@ -129,7 +145,6 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("Home")]
         public IActionResult Index()
         {
-            var serverSpaceInfo = GetServerSpaceInfo();
             var fileInfos = FileInfos;
 
             // Default sort: newest first
@@ -263,11 +278,13 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         /// <param name="files">The file to upload.</param>
         /// <param name="expiryOption">When the file should expire and be deleted. Defaults to never.</param>
+        /// <param name="cancellationToken">Signals that the upload request was aborted.</param>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost("CreateDoc")]
         [HttpPost("Upload")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
-        public async Task<IActionResult> Upload(List<IFormFile> files, [FromForm] ExpiryOption expiryOption = ExpiryOption.Never)
+        public async Task<IActionResult> Upload(List<IFormFile> files, [FromForm] ExpiryOption expiryOption = ExpiryOption.Never,
+            CancellationToken cancellationToken = default)
         {
             if (files == null || files.Count == 0)
                 return BadRequest("No files uploaded.");
@@ -294,13 +311,13 @@ namespace Lebiru.FileService.Controllers
                 Directory.CreateDirectory(uploadsFolderPath);
 
             var fileInfos = FileInfos;
+            var totalSpaceUsed = _metadataStore?.UsedSpace ?? GetTotalSpaceUsed(uploadsFolderPath);
 
             foreach (var file in files)
             {
                 var filePath = Path.Combine(uploadsFolderPath, file.FileName);
 
                 // Check if file upload will exceed configured limit
-                var totalSpaceUsed = GetTotalSpaceUsed(uploadsFolderPath);
                 var maxSpace = _config.MaxDiskSpaceGB * 1024L * 1024L * 1024L;
                 if (totalSpaceUsed + file.Length > maxSpace)
                 {
@@ -309,7 +326,7 @@ namespace Lebiru.FileService.Controllers
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
-                    await file.CopyToAsync(stream);
+                    await file.CopyToAsync(stream, cancellationToken);
                 }
 
                 // Flush to ensure the file is written to disk
@@ -343,6 +360,7 @@ namespace Lebiru.FileService.Controllers
                 };
 
                 fileInfos.Add(fileInfo);
+                totalSpaceUsed += file.Length;
 
                 if (expiryTime.HasValue)
                 {
@@ -642,18 +660,10 @@ namespace Lebiru.FileService.Controllers
             if (!System.IO.File.Exists(filePath))
                 return NotFound();
 
-            var memory = new MemoryStream();
-            using (var stream = new FileStream(filePath, FileMode.Open))
-            {
-                stream.CopyTo(memory);
-            }
-            memory.Position = 0;
-
             // Only increment download counter for explicit downloads (not views)
             _metricsService.IncrementDownloadCount();
 
-            // Force download by using application/octet-stream
-            return File(memory, "application/octet-stream", filename);
+            return PhysicalFile(filePath, "application/octet-stream", filename, enableRangeProcessing: true);
         }
 
         /// <summary>
@@ -686,9 +696,12 @@ namespace Lebiru.FileService.Controllers
             var fileNamesArray = filenames.Split('|');
             var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder);
 
-            using (var memoryStream = new MemoryStream())
+            var tempPath = Path.Combine(Path.GetTempPath(), $"lebiru-{Guid.NewGuid():N}.zip");
+            try
             {
-                using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                await using (var output = new FileStream(tempPath, FileMode.CreateNew, FileAccess.ReadWrite,
+                                 FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: false))
                 {
                     foreach (var fileName in fileNamesArray)
                     {
@@ -699,13 +712,11 @@ namespace Lebiru.FileService.Controllers
                             using (var zipStream = zipEntry.Open())
                             using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
                             {
-                                await fileStream.CopyToAsync(zipStream);
+                                await fileStream.CopyToAsync(zipStream, HttpContext.RequestAborted);
                             }
                         }
                     }
                 }
-
-                memoryStream.Seek(0, SeekOrigin.Begin);
 
                 // Count each file in the zip as a download
                 var fileList = filenames.Split('|', StringSplitOptions.RemoveEmptyEntries);
@@ -714,7 +725,17 @@ namespace Lebiru.FileService.Controllers
                     _metricsService.IncrementDownloadCount();
                 }
 
-                return File(memoryStream.ToArray(), "application/zip", $"LebiruFiles.zip");
+                HttpContext.Response.OnCompleted(() =>
+                {
+                    try { System.IO.File.Delete(tempPath); } catch (IOException) { }
+                    return Task.CompletedTask;
+                });
+                return PhysicalFile(tempPath, "application/zip", "LebiruFiles.zip");
+            }
+            catch
+            {
+                try { System.IO.File.Delete(tempPath); } catch (IOException) { }
+                throw;
             }
         }
 
@@ -804,7 +825,9 @@ namespace Lebiru.FileService.Controllers
         private ServerSpaceInfo GetServerSpaceInfo()
         {
             // Calculate total space used by uploaded files
-            long usedSpace = 0;
+            long usedSpace = _metadataStore?.UsedSpace ?? 0;
+            if (_metadataStore == null)
+            {
             var uploadsDirectory = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder));
             if (uploadsDirectory.Exists)
             {
@@ -828,6 +851,7 @@ namespace Lebiru.FileService.Controllers
                         usedSpace += file.Length;
                     }
                 }
+            }
             }
 
             // Convert configured GB to bytes (ensure we use long for large numbers)
@@ -1320,11 +1344,11 @@ namespace Lebiru.FileService.Controllers
             }
 
             // Add success message and redirect
-            if (isEditing)
+            if (HttpContext.RequestServices != null && HttpContext.RequestServices.GetService<ITempDataDictionaryFactory>() != null && isEditing)
             {
                 TempData["SuccessMessage"] = $"Fetch source '{model.Name}' was successfully updated.";
             }
-            else
+            else if (HttpContext.RequestServices != null && HttpContext.RequestServices.GetService<ITempDataDictionaryFactory>() != null)
             {
                 TempData["SuccessMessage"] = $"Fetch source '{model.Name}' was successfully added.";
             }
@@ -1344,7 +1368,8 @@ namespace Lebiru.FileService.Controllers
 
             if (source == null)
             {
-                TempData["ErrorMessage"] = "Fetch source not found.";
+                if (HttpContext.RequestServices != null && HttpContext.RequestServices.GetService<ITempDataDictionaryFactory>() != null)
+                    TempData["ErrorMessage"] = "Fetch source not found.";
                 return RedirectToAction("Fetch");
             }
 
@@ -1376,7 +1401,8 @@ namespace Lebiru.FileService.Controllers
 
             if (source == null)
             {
-                TempData["ErrorMessage"] = "Fetch source not found.";
+                if (HttpContext.RequestServices != null && HttpContext.RequestServices.GetService<ITempDataDictionaryFactory>() != null)
+                    TempData["ErrorMessage"] = "Fetch source not found.";
                 return RedirectToAction("Fetch");
             }
 
@@ -1464,7 +1490,7 @@ namespace Lebiru.FileService.Controllers
                         return Json(new { success = false, message = "SFTP connection testing not implemented yet." });
                     case "HTTP":
                     case "WebDAV":
-                        return TestHttpConnection(source);
+                        return await TestHttpConnection(source);
                     case "NetworkShare":
                         return Json(new { success = false, message = "Network share testing not implemented yet." });
                     default:
@@ -1499,11 +1525,7 @@ namespace Lebiru.FileService.Controllers
             var sources = GetFetchSources();
             var source = sources.FirstOrDefault(s => s.Id == fetchSourceId);
 
-            if (source == null)
-            {
-                TempData["ErrorMessage"] = "Fetch source not found.";
-                return RedirectToAction("Fetch");
-            }
+            if (source == null) return RedirectToAction("Fetch");
 
             try
             {
@@ -1536,7 +1558,6 @@ namespace Lebiru.FileService.Controllers
             }
 
             int retries = 5;
-            int delayMs = 100;
             Exception? lastException = null;
 
             for (int i = 0; i < retries; i++)
@@ -1560,7 +1581,7 @@ namespace Lebiru.FileService.Controllers
                     // Wait before retrying
                     if (i < retries - 1)
                     {
-                        Thread.Sleep(delayMs * (i + 1)); // Exponential backoff
+                        // Retry immediately; file operations are short and blocking a request thread worsens saturation.
                     }
                 }
                 catch (System.Text.Json.JsonException ex)
@@ -1585,7 +1606,6 @@ namespace Lebiru.FileService.Controllers
 
             // Use a file lock to prevent concurrent access issues
             int retries = 5;
-            int delayMs = 200;
             Exception? lastException = null;
 
             for (int i = 0; i < retries; i++)
@@ -1609,7 +1629,7 @@ namespace Lebiru.FileService.Controllers
                     // Wait before retrying
                     if (i < retries - 1)
                     {
-                        Thread.Sleep(delayMs * (i + 1)); // Exponential backoff
+                        // Retry immediately; file operations are short and blocking a request thread worsens saturation.
                     }
                 }
             }
@@ -1805,8 +1825,15 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         /// <param name="source">The fetch source with HTTP connection details</param>
         /// <returns>JSON result with connection test status</returns>
-        private IActionResult TestHttpConnection(FetchSourceModel source)
+        private async Task<IActionResult> TestHttpConnection(FetchSourceModel source)
         {
+            if (_httpClientFactory == null)
+            {
+                dynamic unavailable = new ExpandoObject();
+                unavailable.success = false;
+                unavailable.message = "HTTP client factory is unavailable.";
+                return Json(unavailable);
+            }
             try
             {
                 string url = source.ServerUrl;
@@ -1838,7 +1865,7 @@ namespace Lebiru.FileService.Controllers
                     using (var client = new HttpClient(handler))
                     {
                         client.Timeout = TimeSpan.FromSeconds(10);
-                        var response = client.GetAsync(url).Result;
+                        var response = await client.GetAsync(url, HttpContext.RequestAborted);
                         return Json(new
                         {
                             success = response.IsSuccessStatusCode,
@@ -2032,7 +2059,7 @@ namespace Lebiru.FileService.Controllers
                 }
 
                 // Try to validate the tokens by making a call to Gmail API
-                using var client = new HttpClient();
+                using var client = CreateHttpClient("GmailApi");
                 client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
                     "Bearer", accessToken);
 
@@ -2199,7 +2226,7 @@ namespace Lebiru.FileService.Controllers
                 string refreshToken = DecryptPassword(source.OAuthRefreshToken);
 
                 // Set up HTTP client for Gmail API requests
-                using var httpClient = new HttpClient();
+                using var httpClient = CreateHttpClient("GmailApi");
                 httpClient.DefaultRequestHeaders.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
                 httpClient.DefaultRequestHeaders.Accept.Add(
@@ -2547,7 +2574,7 @@ namespace Lebiru.FileService.Controllers
                     try
                     {
                         // Fetch attachment data
-                        using var httpClient = new HttpClient();
+                        using var httpClient = CreateHttpClient("GmailApi");
                         httpClient.DefaultRequestHeaders.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
@@ -2634,6 +2661,9 @@ namespace Lebiru.FileService.Controllers
         /// <summary>
         /// Mark a Gmail email as read
         /// </summary>
+        private HttpClient CreateHttpClient(string name) =>
+            _httpClientFactory?.CreateClient(name) ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
         private async Task MarkGmailEmailAsRead(string messageId, HttpClient httpClient)
         {
             try

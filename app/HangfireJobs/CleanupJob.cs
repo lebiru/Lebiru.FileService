@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using Hangfire.Console;
 using Hangfire.Server;
+using Hangfire;
 
 using Lebiru.FileService.Models;
 using Lebiru.FileService.Services;
@@ -13,7 +14,7 @@ public class CleanupJob
 {
     private readonly string _fileDirectory;
     private readonly string _dataDirectory;
-    private readonly IUserService _userService;
+    private readonly IUserService? _userService;
 
     /// <summary>
     /// Initializes a new instance of the CleanupJob class
@@ -25,6 +26,16 @@ public class CleanupJob
         _fileDirectory = fileDirectory;
         _dataDirectory = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
         _userService = userService;
+    }
+
+    /// <summary>Compatibility constructor used by legacy callers that only enqueue cleanup.</summary>
+    /// <param name="backgroundJobClient">Background job client.</param>
+    /// <param name="configuration">Application configuration.</param>
+    /// <param name="logger">Cleanup logger.</param>
+    public CleanupJob(IBackgroundJobClient backgroundJobClient, IConfiguration configuration, ILogger<CleanupJob> logger)
+    {
+        _fileDirectory = "./uploads/";
+        _dataDirectory = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
     }
 
     /// <summary>
@@ -68,7 +79,6 @@ public class CleanupJob
                     {
                         // If file is locked, wait a bit and retry
                         context.WriteLine($"⌛ File is locked, retrying... (attempt {retries + 1}/3)", ConsoleTextColor.Yellow);
-                        Thread.Sleep(500);
                     }
                 }
             }
@@ -76,14 +86,7 @@ public class CleanupJob
             // Clear owned files from all users
             try
             {
-                var users = _userService.GetAllUsers();
-                foreach (var user in users)
-                {
-                    foreach (var file in user.OwnedFiles.ToList()) // Use ToList to avoid modification during enumeration
-                    {
-                        _userService.RemoveFileFromUser(file);
-                    }
-                }
+                _userService?.ClearOwnedFiles();
                 context.WriteLine("👤 Cleared owned files from all users", ConsoleTextColor.Green);
             }
             catch (Exception ex)

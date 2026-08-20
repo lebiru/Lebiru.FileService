@@ -73,6 +73,9 @@ namespace Lebiru.FileService.Services
         /// </summary>
         /// <param name="filePath">The path of the file to remove</param>
         void RemoveFileFromUser(string filePath);
+
+        /// <summary>Removes all file ownership associations with one persistence operation.</summary>
+        void ClearOwnedFiles();
         
         /// <summary>
         /// Updates a file path in all user records when a file is renamed
@@ -236,6 +239,16 @@ namespace Lebiru.FileService.Services
             }
             Save();
         }
+
+        /// <inheritdoc />
+        public void ClearOwnedFiles()
+        {
+            lock (_sync)
+            {
+                foreach (var user in _users) user.OwnedFiles.Clear();
+                AtomicJsonStore.Write(_filePath, _users);
+            }
+        }
         
         /// <inheritdoc />
         public void UpdateFilePath(string oldFilePath, string newFilePath)
@@ -287,8 +300,7 @@ namespace Lebiru.FileService.Services
             {
                 lock (_sync)
                 {
-                    var json = JsonSerializer.Serialize(_users);
-                    File.WriteAllText(_filePath, json);
+                    AtomicJsonStore.Write(_filePath, _users);
                 }
             }
             catch (Exception ex)

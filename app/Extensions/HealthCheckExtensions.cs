@@ -26,7 +26,8 @@ namespace Lebiru.FileService
                 })
                 .AddCheck("disk", () =>
                 {
-                    var drive = new System.IO.DriveInfo("C");
+                    var storageRoot = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath("./uploads"))!;
+                    var drive = new System.IO.DriveInfo(storageRoot);
                     var freeSpaceMB = drive.AvailableFreeSpace / 1024 / 1024;
                     return freeSpaceMB > 100 
                         ? HealthCheckResult.Healthy($"Free space: {freeSpaceMB}MB")
@@ -43,10 +44,16 @@ namespace Lebiru.FileService
                     try
                     {
                         // Try to write a test file
-                        var testFile = System.IO.Path.Combine(uploadsPath, ".test");
-                        System.IO.File.WriteAllText(testFile, "test");
-                        System.IO.File.Delete(testFile);
-                        return HealthCheckResult.Healthy("Uploads directory is writable");
+                        var testFile = System.IO.Path.Combine(uploadsPath, $".health-{Guid.NewGuid():N}");
+                        try
+                        {
+                            System.IO.File.WriteAllText(testFile, "test");
+                            return HealthCheckResult.Healthy("Uploads directory is writable");
+                        }
+                        finally
+                        {
+                            System.IO.File.Delete(testFile);
+                        }
                     }
                     catch (Exception ex)
                     {

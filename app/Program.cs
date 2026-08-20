@@ -10,6 +10,8 @@ using Lebiru.FileService.HangfireScheduler;
 using Microsoft.AspNetCore.Http.Features;
 using Hangfire.Console;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Hangfire.Storage.SQLite;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,12 +51,14 @@ builder.Services.Configure<IISServerOptions>(options =>
 
 // Register API metrics service as a singleton
 builder.Services.AddSingleton<IApiMetricsService, ApiMetricsService>();
+builder.Services.AddHostedService(provider => (ApiMetricsService)provider.GetRequiredService<IApiMetricsService>());
 
 // Register user service as singleton
 builder.Services.AddSingleton<IUserService, UserService>();
 
 // Register MIME validation service as singleton
 builder.Services.AddSingleton<IMimeValidationService, MimeValidationService>();
+builder.Services.AddSingleton<IFileMetadataStore, FileMetadataStore>();
 
 // Configure CORS for OAuth communication
 builder.Services.AddCors(options =>
@@ -69,9 +73,18 @@ builder.Services.AddCors(options =>
 
 // Register HttpClient Factory for OAuth operations
 builder.Services.AddHttpClient("GoogleOAuth");
+builder.Services.AddHttpClient("GmailApi", client =>
+{
+    client.BaseAddress = new Uri("https://www.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+}).SetHandlerLifetime(TimeSpan.FromMinutes(10));
+builder.Services.AddHttpClient("ExternalFetch", client => client.Timeout = TimeSpan.FromSeconds(30))
+    .SetHandlerLifetime(TimeSpan.FromMinutes(10));
 
+var hangfirePath = Path.Combine(Directory.GetCurrentDirectory(), "app-data", "hangfire.db");
+Directory.CreateDirectory(Path.GetDirectoryName(hangfirePath)!);
 builder.Services.AddHangfire(config => config
-    .UseMemoryStorage()
+    .UseSQLiteStorage(hangfirePath)
     .UseConsole());
 builder.Services.AddHangfireServer();
 
@@ -81,7 +94,7 @@ builder.Services.AddTransient(provider =>
         "./uploads/",
         provider.GetRequiredService<IUserService>()));
 builder.Services.AddTransient(provider =>
-    new ExpiryJob("./uploads/"));
+    new ExpiryJob("./uploads/", provider.GetRequiredService<IFileMetadataStore>()));
 
 
 builder.Services.AddSwaggerGen(c =>
@@ -227,6 +240,8 @@ app.UseStatusCodePagesWithReExecute("/Error/{0}");
 app.UseExceptionHandler("/Error/500"); // Handle unhandled exceptions
 
 app.MapControllers();
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready");
 // Map health checks to the controller instead of the default endpoint
 app.MapControllerRoute(
     name: "healthcheck",

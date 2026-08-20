@@ -19,15 +19,16 @@ namespace Lebiru.FileService.Controllers
   [Authorize]
   public class TransformController : Controller
   {
+    private readonly IHttpClientFactory? _httpClientFactory;
     private const string UploadsFolder = "uploads";
     private const string DataFolder = "app-data";
-    private const string AppRootPath = "C:\\source\\Lebiru.FileService\\app";
     private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly string _transformsPath;
     private readonly string _activitiesPath;
     private readonly FileServiceConfig _config;
     private readonly ILogger<TransformController> _logger;
     private readonly string _serviceUrl;
+    private readonly string _appRootPath;
 
     /// <summary>
     /// Constructor for TransformController
@@ -36,19 +37,19 @@ namespace Lebiru.FileService.Controllers
         IBackgroundJobClient backgroundJobClient,
         IConfiguration configuration,
         IWebHostEnvironment environment,
-        ILogger<TransformController> logger)
+        ILogger<TransformController> logger,
+        IHttpClientFactory? httpClientFactory = null)
     {
       _backgroundJobClient = backgroundJobClient;
       _logger = logger;
+      _httpClientFactory = httpClientFactory;
+      _appRootPath = environment.ContentRootPath;
 
       // Get base service URL from config or use default
       _serviceUrl = configuration["ServiceUrl"] ?? "http://localhost";
       _logger.LogInformation("Service URL: {ServiceUrl}", _serviceUrl);
 
-      // Always use the direct path to app\app-data regardless of where the app is run from
-      _logger.LogInformation("Using fixed app root path: {AppRootPath}", AppRootPath);
-
-      string basePath = Path.Combine(AppRootPath, DataFolder);
+      string basePath = Path.Combine(environment.ContentRootPath, DataFolder);
       _logger.LogInformation("Content root path: {ContentRoot}", environment.ContentRootPath);
       _logger.LogInformation("Fixed app data path: {DataPath}", basePath);
       Directory.CreateDirectory(basePath);
@@ -93,7 +94,7 @@ namespace Lebiru.FileService.Controllers
     public IActionResult Index()
     {
       // If we've just completed a successful save, clear any stale error messages
-      if (TempData["SuccessMessage"] != null)
+      if (HttpContext != null && TempData["SuccessMessage"] != null)
       {
         TempData.Remove("ErrorMessage");
       }
@@ -842,7 +843,7 @@ namespace Lebiru.FileService.Controllers
         // Sync file metadata to ensure transformed files appear in the Dashboard
         try
         {
-          using (var httpClient = new HttpClient())
+          using (var httpClient = CreateHttpClient())
           {
             if (System.Net.ServicePointManager.DefaultConnectionLimit < 10)
             {
@@ -853,10 +854,10 @@ namespace Lebiru.FileService.Controllers
             _logger.LogInformation("Syncing file metadata at {Url}", syncUrl);
             context?.WriteLine("📊 Syncing file metadata to ensure files appear in Dashboard...");
 
-            var response = httpClient.PostAsync(syncUrl, null).Result;
+            var response = await httpClient.PostAsync(syncUrl, null);
             if (response.IsSuccessStatusCode)
             {
-              var result = response.Content.ReadAsStringAsync().Result;
+              var result = await response.Content.ReadAsStringAsync();
               _logger.LogInformation("File metadata sync result: {Result}", result);
               context?.WriteLine("✅ File metadata synced successfully");
             }
@@ -1076,7 +1077,7 @@ namespace Lebiru.FileService.Controllers
     /// </summary>
     private string GetAppPath(string relativePath)
     {
-      return Path.Combine(AppRootPath, relativePath);
+      return Path.Combine(_appRootPath, relativePath);
     }
 
     /// <summary>
@@ -1103,7 +1104,7 @@ namespace Lebiru.FileService.Controllers
         foreach (var filename in request.Files)
         {
           string filePath = Path.Combine(UploadsFolder, filename);
-          string fullPath = Path.Combine(AppRootPath, filePath);
+          string fullPath = Path.Combine(_appRootPath, filePath);
 
           if (!System.IO.File.Exists(fullPath))
           {
@@ -1130,7 +1131,7 @@ namespace Lebiru.FileService.Controllers
           {
             // Generate a new filename with _transformed suffix
             string newFilename = Path.GetFileNameWithoutExtension(filename) + "_transformed" + Path.GetExtension(filename);
-            string newFilePath = Path.Combine(AppRootPath, UploadsFolder, newFilename);
+            string newFilePath = Path.Combine(_appRootPath, UploadsFolder, newFilename);
 
             // Save the transformed file
             await System.IO.File.WriteAllTextAsync(newFilePath, transformedContent);
@@ -1146,7 +1147,7 @@ namespace Lebiru.FileService.Controllers
         if (transformedCount > 0)
         {
           // Call FileController's SyncFileMetadata endpoint
-          using (var httpClient = new HttpClient())
+          using (var httpClient = CreateHttpClient())
           {
             httpClient.BaseAddress = new Uri(_serviceUrl);
             var response = await httpClient.PostAsync("/File/SyncFileMetadata", new StringContent("", Encoding.UTF8, "application/json"));
@@ -1170,6 +1171,9 @@ namespace Lebiru.FileService.Controllers
         return Json(new { success = false, error = ex.Message });
       }
     }
+
+    private HttpClient CreateHttpClient() =>
+      _httpClientFactory?.CreateClient("ExternalFetch") ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 
     private bool IsTextFile(string extension)
     {

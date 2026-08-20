@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.Console;
 using Hangfire.Server;
+using Lebiru.FileService.Services;
 
 
 namespace Lebiru.FileService.HangfireJobs
@@ -12,14 +13,17 @@ namespace Lebiru.FileService.HangfireJobs
     {
         private readonly string _uploadsDirectory;
         private readonly string _dataDirectory;
+        private readonly IFileMetadataStore? _metadataStore;
 
         /// <summary>
         /// Creates a new instance of the ExpiryJob
         /// </summary>
         /// <param name="uploadsDirectory">Directory where files are stored</param>
-        public ExpiryJob(string uploadsDirectory)
+        /// <param name="metadataStore">Shared metadata store used to coordinate updates</param>
+        public ExpiryJob(string uploadsDirectory, IFileMetadataStore? metadataStore = null)
         {
             _uploadsDirectory = uploadsDirectory;
+            _metadataStore = metadataStore;
             _dataDirectory = Path.Combine(Directory.GetCurrentDirectory(), "app-data");
             if (!Directory.Exists(_dataDirectory))
             {
@@ -44,8 +48,8 @@ namespace Lebiru.FileService.HangfireJobs
 
             try
             {
-                var fileInfoJson = File.ReadAllText(fileInfoPath);
-                var files = System.Text.Json.JsonSerializer.Deserialize<List<Models.FileInfo>>(fileInfoJson) ?? new();
+                var files = _metadataStore?.GetAll() ??
+                    (System.Text.Json.JsonSerializer.Deserialize<List<Models.FileInfo>>(File.ReadAllText(fileInfoPath)) ?? new());
                 var now = DateTime.UtcNow;
                 var expiredFiles = files.Where(f => f.ExpiryTime.HasValue && f.ExpiryTime.Value <= now).ToList();
 
@@ -86,8 +90,8 @@ namespace Lebiru.FileService.HangfireJobs
 
                 // Update the fileInfo.json to remove expired files
                 files.RemoveAll(f => expiredFiles.Contains(f));
-                var updatedJson = System.Text.Json.JsonSerializer.Serialize(files);
-                File.WriteAllText(fileInfoPath, updatedJson);
+                if (_metadataStore != null) _metadataStore.Replace(files);
+                else AtomicJsonStore.Write(fileInfoPath, files);
 
                 context?.WriteLine($"Cleanup job completed. Successfully deleted {successCount} files, {failureCount} failures.");
             }

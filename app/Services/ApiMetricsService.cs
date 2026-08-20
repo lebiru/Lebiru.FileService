@@ -48,7 +48,7 @@ namespace Lebiru.FileService.Services
     /// <summary>
     /// Implementation of the API metrics tracking service
     /// </summary>
-    public class ApiMetricsService : IApiMetricsService
+    public class ApiMetricsService : IApiMetricsService, IHostedService, IDisposable
     {
         private readonly string _filePath;
         private readonly object _sync = new();
@@ -56,6 +56,8 @@ namespace Lebiru.FileService.Services
         private long _downloadCount;
         private long _deleteCount;
         private DateTime _lastUpdated;
+        private int _dirty;
+        private Timer? _flushTimer;
 
         /// <inheritdoc />
         public long UploadCount => _uploadCount;
@@ -87,21 +89,45 @@ namespace Lebiru.FileService.Services
         public void IncrementUploadCount()
         {
             Interlocked.Increment(ref _uploadCount);
-            Save();
+            MarkDirty();
         }
 
         /// <inheritdoc />
         public void IncrementDownloadCount()
         {
             Interlocked.Increment(ref _downloadCount);
-            Save();
+            MarkDirty();
         }
 
         /// <inheritdoc />
         public void IncrementDeleteCount()
         {
             Interlocked.Increment(ref _deleteCount);
-            Save();
+            MarkDirty();
+        }
+
+        private void MarkDirty()
+        {
+            _lastUpdated = DateTime.UtcNow;
+            Interlocked.Exchange(ref _dirty, 1);
+        }
+
+        /// <inheritdoc />
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            _flushTimer = new Timer(_ => FlushIfDirty(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public Task StopAsync(CancellationToken cancellationToken) { Save(); return Task.CompletedTask; }
+
+        /// <inheritdoc />
+        public void Dispose() { _flushTimer?.Dispose(); Save(); }
+
+        private void FlushIfDirty()
+        {
+            if (Interlocked.Exchange(ref _dirty, 0) == 1) Save();
         }
 
         private void Load()
@@ -141,8 +167,7 @@ namespace Lebiru.FileService.Services
                         DeleteCount = _deleteCount,
                         LastUpdated = _lastUpdated
                     };
-                    var json = JsonSerializer.Serialize(state);
-                    File.WriteAllText(_filePath, json);
+                    AtomicJsonStore.Write(_filePath, state);
                 }
             }
             catch
