@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.20] - 2026-08-20
+
+### Added
+
+- Added an Aspire dashboard link to the primary navigation for administrators when a dashboard URL is configured.
+
+### Security
+
+- Protected the Aspire redirect endpoint with the `Admin` role and require an HTTPS dashboard URL outside development.
+- Explicitly retained Aspire's authenticated dashboard mode and documented production OIDC authorization with a required administrator claim.
+
 ## [0.0.1-preview.19] - 2026-08-20
 
 ### Fixed

@@ -202,6 +202,8 @@ dotnet run --project app/Lebiru.FileService.AppHost
 
 The command launches Felix File Service at `http://localhost:3002` and opens the authenticated Aspire dashboard at `http://localhost:18888`. Use its Resources, Structured Logs, Traces, and Metrics pages to inspect the running application. The dashboard login URL and temporary browser token are printed in the terminal. Standalone application startup remains available at `http://localhost:3000`, so both modes can run side by side.
 
+When launched through the AppHost, administrators also see an **Aspire** link in the Felix navigation bar. The link targets the role-protected `/Aspire` endpoint; non-administrators cannot use that endpoint. `Aspire:DashboardUrl` is empty by default so a normal application deployment does not expose a dead or unintended dashboard link.
+
 Aspire injects its authenticated OTLP endpoint automatically. Traces and structured logs are exported within about one second, and metrics every five seconds. Open the Felix endpoint from the Resources page or browse `http://localhost:3002/health/live` to generate an initial request trace.
 
 By default telemetry is written through the console exporter. To send OTLP data to an OpenTelemetry Collector or compatible backend, set an endpoint and optionally disable console output:
@@ -212,6 +214,21 @@ OpenTelemetry__UseConsoleExporter=false
 ```
 
 The service name defaults to `Lebiru.FileService` and can be changed with `OpenTelemetry__ServiceName` or the standard `OTEL_SERVICE_NAME` environment variable. Aspire supplies its OTLP endpoint and authentication headers automatically.
+
+For a production dashboard, set `Aspire__DashboardUrl` to its public HTTPS URL and configure the standalone Aspire dashboard to use your OpenID Connect provider with an administrator claim. Do not enable anonymous dashboard access. The relevant dashboard container settings are:
+
+```bash
+Aspire__DashboardUrl=https://aspire.example.com
+Dashboard__Frontend__AuthMode=OpenIdConnect
+Dashboard__Frontend__OpenIdConnect__RequiredClaimType=role
+Dashboard__Frontend__OpenIdConnect__RequiredClaimValue=Admin
+Authentication__Schemes__OpenIdConnect__Authority=https://identity.example.com
+Authentication__Schemes__OpenIdConnect__ClientId=felix-aspire
+Authentication__Schemes__OpenIdConnect__ClientSecret=<secret>
+ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+```
+
+Publish only the dashboard's HTTPS frontend through the ingress or reverse proxy. Keep its OTLP ports private to the deployment network and configure OTLP authentication separately. The Felix role check and Aspire's required OIDC claim are independent server-side controls; provision the Aspire client only for the same administrators.
 
 ### Docker Deployment
 
