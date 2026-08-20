@@ -9,6 +9,11 @@ public sealed class SecurityServicesTests
     [InlineData("..%2Fsecret.txt")]
     [InlineData("folder/secret.txt")]
     [InlineData("C:\\secret.txt")]
+    [InlineData("..\\secret.txt")]
+    [InlineData("..%5Csecret.txt")]
+    [InlineData("\\\\server\\share\\secret.txt")]
+    [InlineData("report.txt:payload")]
+    [InlineData("/etc/passwd")]
     public void ResolveFileRejectsPathsOutsideStorage(string candidate)
     {
         var storageRoot = Path.Combine(Path.GetTempPath(), "lebiru-security-tests");

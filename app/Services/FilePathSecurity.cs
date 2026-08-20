@@ -11,7 +11,8 @@ public static class FilePathSecurity
 
         var decoded = Uri.UnescapeDataString(untrustedFileName).Trim();
         var leafName = Path.GetFileName(decoded);
-        if (!string.Equals(decoded, leafName, StringComparison.Ordinal) ||
+        if (decoded.IndexOfAny(new[] { '/', '\\', ':' }) >= 0 ||
+            !string.Equals(decoded, leafName, StringComparison.Ordinal) ||
             Path.IsPathRooted(decoded) || decoded is "." or "..")
             throw new ArgumentException("The file name contains an invalid path.", nameof(untrustedFileName));
 

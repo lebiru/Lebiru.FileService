@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.12] - 2026-08-19
+
+### Fixed
+
+- Made file-path validation platform-independent by rejecting Windows and Unix separators, drive/stream syntax, UNC paths, and their encoded traversal variants on every operating system.
+
 ## [0.0.1-preview.11] - 2026-08-19
 
 ### Changed
