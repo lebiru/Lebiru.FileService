@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.13] - 2026-08-20
+
+### Added
+
+- Added automatic synchronization of `README.md` to the `lebiru/fileservice` Docker Hub overview after each successful image publication.
+
 ## [0.0.1-preview.12] - 2026-08-19
 
 ### Fixed

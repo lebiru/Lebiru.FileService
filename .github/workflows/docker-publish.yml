@@ -88,3 +88,13 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max
           sbom: true
+
+      - name: Update Docker Hub overview from README
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: lebiru
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: lebiru/fileservice
+          readme-filepath: ./README.md
+          short-description: Modern, secure, and observable ASP.NET Core file service
+          enable-url-completion: true
