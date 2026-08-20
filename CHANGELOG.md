@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.10] - 2026-08-19
+
+### Added
+
+- Added a GitHub Actions pipeline that tests the application and publishes cached, multi-architecture Docker images to `lebiru/fileservice` with edge, semantic-version, commit-SHA, provenance, and SBOM metadata.
+
 ## [0.0.1-preview.9] - 2026-08-19
 
 ### Changed
