@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.19] - 2026-08-20
+
+### Fixed
+
+- Explicitly enabled always-on OpenTelemetry trace sampling for Aspire development runs so inbound HTTP spans cannot be suppressed by inherited sampler settings.
+- Enabled exception recording on ASP.NET Core spans to make failed requests diagnosable from the Aspire Traces view.
+
 ## [0.0.1-preview.18] - 2026-08-20
 
 ### Fixed

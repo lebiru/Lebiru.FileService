@@ -100,7 +100,8 @@ builder.Services.AddOpenTelemetry()
         serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString()))
     .WithTracing(tracing =>
     {
-        tracing.AddAspNetCoreInstrumentation()
+        tracing.SetSampler(new AlwaysOnSampler())
+            .AddAspNetCoreInstrumentation(options => options.RecordException = true)
             .AddHttpClientInstrumentation();
         if (hasOtlpEndpoint)
             tracing.AddOtlpExporter(options => options.Endpoint = parsedOtlpEndpoint!);
