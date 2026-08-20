@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.22] - 2026-08-20
+
+### Fixed
+
+- Allowed authenticated administrators to open an HTTP Aspire dashboard on loopback addresses even when the AppHost launches Felix with a production environment name.
+- Preserved the HTTPS requirement for every non-loopback Aspire dashboard configured in production.
+
 ## [0.0.1-preview.21] - 2026-08-20
 
 ### Changed

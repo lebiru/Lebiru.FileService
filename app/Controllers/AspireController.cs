@@ -30,10 +30,12 @@ public sealed class AspireController : Controller
             return NotFound();
         }
 
-        if (!_environment.IsDevelopment() && dashboardUri.Scheme != Uri.UriSchemeHttps)
+        if (!_environment.IsDevelopment() &&
+            dashboardUri.Scheme != Uri.UriSchemeHttps &&
+            !dashboardUri.IsLoopback)
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                "The Aspire dashboard must use HTTPS outside development.");
+                "A remote Aspire dashboard must use HTTPS outside development.");
         }
 
         return Redirect(dashboardUri.AbsoluteUri);

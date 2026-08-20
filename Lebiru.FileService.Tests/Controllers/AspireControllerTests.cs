@@ -43,6 +43,19 @@ public sealed class AspireControllerTests
     }
 
     [Theory]
+    [InlineData("http://localhost:18888", "http://localhost:18888/")]
+    [InlineData("http://127.0.0.1:18888", "http://127.0.0.1:18888/")]
+    [InlineData("http://[::1]:18888", "http://[::1]:18888/")]
+    public void IndexAllowsLoopbackHttpDashboardInProduction(string dashboardUrl, string expectedUrl)
+    {
+        var controller = CreateController(dashboardUrl, Environments.Production);
+
+        var result = Assert.IsType<RedirectResult>(controller.Index());
+
+        Assert.Equal(expectedUrl, result.Url);
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("not-a-url")]
     [InlineData("javascript:alert(1)")]
