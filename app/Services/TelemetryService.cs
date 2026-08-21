@@ -33,6 +33,10 @@ public sealed class TelemetryService : IDisposable
     private readonly Counter<long> _errorCounter;
     private readonly Histogram<double> _durationHistogram;
     private readonly UpDownCounter<long> _activeCounter;
+    private readonly Counter<long> _webPageFetchCounter;
+    private readonly Counter<long> _webPageFetchBytesCounter;
+    private readonly Counter<long> _webPageFetchSsrfBlockedCounter;
+    private readonly Histogram<double> _webPageFetchDurationHistogram;
     private readonly ConcurrentDictionary<long, Bucket> _buckets = new();
     private long _totalRequests;
     private long _totalErrors;
@@ -46,6 +50,10 @@ public sealed class TelemetryService : IDisposable
         _errorCounter = _meter.CreateCounter<long>("lebiru.http.server.errors", "{error}");
         _durationHistogram = _meter.CreateHistogram<double>("lebiru.http.server.duration", "ms");
         _activeCounter = _meter.CreateUpDownCounter<long>("lebiru.http.server.active_requests", "{request}");
+        _webPageFetchCounter = _meter.CreateCounter<long>("lebiru.webpage.fetches", "{fetch}");
+        _webPageFetchBytesCounter = _meter.CreateCounter<long>("lebiru.webpage.fetch.bytes", "By");
+        _webPageFetchSsrfBlockedCounter = _meter.CreateCounter<long>("lebiru.webpage.fetch.ssrf_blocked", "{fetch}");
+        _webPageFetchDurationHistogram = _meter.CreateHistogram<double>("lebiru.webpage.fetch.duration", "ms");
     }
 
     /// <summary>Marks a request as active.</summary>
@@ -118,6 +126,16 @@ public sealed class TelemetryService : IDisposable
             GC.GetTotalMemory(false),
             Volatile.Read(ref _activeRequests),
             points);
+    }
+
+    /// <summary>Records a completed or rejected Web Page ingestion operation.</summary>
+    public void RecordWebPageFetch(bool success, long bytes, double durationMs, bool ssrfBlocked)
+    {
+        var tags = new TagList { { "fetch.success", success } };
+        _webPageFetchCounter.Add(1, tags);
+        _webPageFetchDurationHistogram.Record(durationMs, tags);
+        if (bytes > 0) _webPageFetchBytesCounter.Add(bytes, tags);
+        if (ssrfBlocked) _webPageFetchSsrfBlockedCounter.Add(1);
     }
 
     /// <inheritdoc />

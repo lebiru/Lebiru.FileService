@@ -35,6 +35,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **File Sharing**: 🔗 Share button to easily copy file viewing links to clipboard.
 - **In-Browser Text Viewing**: 📄 Text files displayed in browser with syntax highlighting and line numbers.
 - **External File Fetching**: 🌐 Fetch files from external sources (FTP, SFTP, HTTP/HTTPS, WebDAV, Network Shares).
+- **Secure Web Page Ingestion**: 🌍 Save public HTML/XHTML pages as owned files in root or a selected virtual directory.
 - **File Transformation**: 🔄 Transform files using regex patterns to extract and process content.
 
 ## Technologies Used
@@ -118,6 +119,19 @@ The application supports fetching files from various external sources:
 - **Post-Fetch Actions**: Optionally delete files from source after successful fetch
 - **Role-Based Access**: Different permissions for Admin, Contributor, and Viewer roles
 - **File Ownership**: Users can only modify or delete their own files unless they have Admin privileges
+
+#### Web Page sources
+
+Choose **Fetch Source → Add Fetch Source → Web Page**, enter a public HTTP or HTTPS URL, and select an optional destination directory. Running the source stores the response body unchanged as a normal owned `.html`, `.htm`, or `.xhtml` file. The same operation is available to Admin and Contributor users through `POST /api/fetch/web-page`:
+
+```json
+{
+  "url": "https://example.com/article",
+  "directoryId": null
+}
+```
+
+`WebPageFetch` settings control the feature flag, total timeout, maximum response bytes (5 MB by default), redirect limit, per-user concurrency, and requests per minute. Each destination and redirect is DNS-resolved and blocked when any answer is local, private, link-local, multicast, reserved, a cloud metadata address, or otherwise non-public. Connections are pinned to validated addresses to mitigate DNS rebinding. Only successful HTML/XHTML responses are finalized; timeout, cancellation, validation, and storage failures remove temporary files.
 
 ### File Transformation
 

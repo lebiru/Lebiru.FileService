@@ -59,6 +59,7 @@ namespace Lebiru.FileService.Controllers
         private readonly IDataProtector? _secretProtector;
         private readonly SsrfProtectionService? _ssrfProtection;
         private readonly IVirtualDirectoryService? _directoryService;
+        private readonly IWebPageFetchService? _webPageFetchService;
 
         private static readonly object _fileLock = new object();
 
@@ -115,6 +116,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="dataProtectionProvider">Protects persisted fetch credentials</param>
         /// <param name="ssrfProtection">Validates outbound destinations</param>
         /// <param name="directoryService">Validates and manages optional virtual directory placement</param>
+        /// <param name="webPageFetchService">Securely ingests Web Page fetch sources</param>
         public FileController(
             CleanupJob cleanupJob,
 
@@ -128,7 +130,8 @@ namespace Lebiru.FileService.Controllers
             IHttpClientFactory? httpClientFactory = null,
             IDataProtectionProvider? dataProtectionProvider = null,
             SsrfProtectionService? ssrfProtection = null,
-            IVirtualDirectoryService? directoryService = null)
+            IVirtualDirectoryService? directoryService = null,
+            IWebPageFetchService? webPageFetchService = null)
         {
             _cleanupJob = cleanupJob;
 
@@ -149,6 +152,7 @@ namespace Lebiru.FileService.Controllers
             _secretProtector = dataProtectionProvider?.CreateProtector("Lebiru.FileService.FetchSecrets.v1");
             _ssrfProtection = ssrfProtection;
             _directoryService = directoryService;
+            _webPageFetchService = webPageFetchService;
         }
 
         /// <summary>
@@ -1221,10 +1225,14 @@ namespace Lebiru.FileService.Controllers
         [HttpGet("Fetch")]
         public IActionResult Fetch()
         {
+            var owner = User.Identity?.Name ?? string.Empty;
             var model = new FetchViewModel
             {
-                FetchSources = GetFetchSources(),
-                LatestActivities = GetLatestFetchActivities(10) // Get last 10 activities
+                FetchSources = GetFetchSources().Where(source => OwnsFetchSource(source, owner)).ToList(),
+                LatestActivities = GetLatestFetchActivities(100)
+                    .Where(activity => string.Equals(activity.OwnerUserId, owner, StringComparison.OrdinalIgnoreCase) ||
+                        string.IsNullOrEmpty(activity.OwnerUserId) && User.IsInRole(UserRoles.Admin))
+                    .Take(10).ToList()
             };
 
             return View("Fetch", model);
@@ -1262,6 +1270,8 @@ namespace Lebiru.FileService.Controllers
         [Consumes("multipart/form-data", "application/x-www-form-urlencoded")]
         public IActionResult SaveFetchSource()
         {
+            var owner = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(owner)) return Unauthorized();
             // Check if this is an edit (ID is provided)
             string formId = Request.Form["Id"].ToString();
             bool isEditing = !string.IsNullOrEmpty(formId);
@@ -1279,6 +1289,7 @@ namespace Lebiru.FileService.Controllers
                     TempData["ErrorMessage"] = "Fetch source not found for editing.";
                     return RedirectToAction("Fetch");
                 }
+                if (!OwnsFetchSource(existingSource, owner)) return NotFound();
             }
 
             // Create a new model and manually bind form values to handle checkboxes properly
@@ -1286,6 +1297,8 @@ namespace Lebiru.FileService.Controllers
             {
                 Name = Request.Form["Name"].ToString(),
                 Type = Request.Form["Type"].ToString(),
+                OwnerUserId = owner,
+                DirectoryId = Guid.TryParse(Request.Form["DirectoryId"], out var directoryId) ? directoryId : null,
                 // Make ServerUrl conditional for Gmail type
                 ServerUrl = Request.Form["Type"] == "Gmail" ? "gmail.googleapis.com" : Request.Form["ServerUrl"].ToString(),
                 Username = Request.Form["Username"].ToString(),
@@ -1336,6 +1349,12 @@ namespace Lebiru.FileService.Controllers
                 model.FetchIntervalMinutes = 60;
             }
 
+            if (model.DirectoryId.HasValue && (_directoryService is null ||
+                !_directoryService.IsOwnedBy(model.DirectoryId.Value, owner)))
+            {
+                ModelState.AddModelError("DirectoryId", "The destination directory was not found.");
+            }
+
             // For Gmail type, we don't need to validate ServerUrl
             if (model.Type == "Gmail")
             {
@@ -1359,6 +1378,8 @@ namespace Lebiru.FileService.Controllers
                 // Preserve the original ID and creation timestamp
                 model.Id = formId;
                 model.CreatedAt = existingSource!.CreatedAt;
+                model.OwnerUserId = string.IsNullOrEmpty(existingSource.OwnerUserId)
+                    ? owner : existingSource.OwnerUserId;
             }
             else
             {
@@ -1460,7 +1481,8 @@ namespace Lebiru.FileService.Controllers
         public IActionResult EditFetchSource(string id)
         {
             var sources = GetFetchSources();
-            var source = sources.FirstOrDefault(s => s.Id == id);
+            var owner = User.Identity?.Name ?? string.Empty;
+            var source = sources.FirstOrDefault(s => s.Id == id && OwnsFetchSource(s, owner));
 
             if (source == null)
             {
@@ -1494,7 +1516,8 @@ namespace Lebiru.FileService.Controllers
             }
 
             var sources = GetFetchSources();
-            var source = sources.FirstOrDefault(s => s.Id == id);
+            var owner = User.Identity?.Name ?? string.Empty;
+            var source = sources.FirstOrDefault(s => s.Id == id && OwnsFetchSource(s, owner));
 
             if (source == null)
             {
@@ -1526,7 +1549,8 @@ namespace Lebiru.FileService.Controllers
             if (!string.IsNullOrEmpty(fetchSourceId) && Guid.TryParse(fetchSourceId, out _))
             {
                 var sources = GetFetchSources();
-                var foundSource = sources.FirstOrDefault(s => s.Id == fetchSourceId);
+                var owner = User.Identity?.Name ?? string.Empty;
+                var foundSource = sources.FirstOrDefault(s => s.Id == fetchSourceId && OwnsFetchSource(s, owner));
                 if (foundSource != null)
                 {
                     source = foundSource;
@@ -1582,6 +1606,11 @@ namespace Lebiru.FileService.Controllers
                 {
                     case "Gmail":
                         return await TestGmailConnection(source);
+                    case "WebPage":
+                        if (_ssrfProtection is null)
+                            return Json(new { success = false, message = "Outbound URL validation is unavailable." });
+                        await _ssrfProtection.ValidateAsync(source.ServerUrl, HttpContext.RequestAborted);
+                        return Json(new { success = true, message = "The Web Page URL and public destination are valid." });
                     case "FTP":
                         return TestFtpConnection(source);
                     case "SFTP":
@@ -1597,8 +1626,12 @@ namespace Lebiru.FileService.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error testing connection to {Type} source at {Url}", source.Type, source.ServerUrl);
-                return Json(new { success = false, message = $"Connection test failed: {ex.Message}" });
+                var host = Uri.TryCreate(source.ServerUrl, UriKind.Absolute, out var parsed) ? parsed.IdnHost : "invalid";
+                _logger.LogError(ex, "Error testing connection to {Type} source host {Host}", source.Type, host);
+                var message = source.Type == "WebPage"
+                    ? "The Web Page URL could not be validated as a public destination."
+                    : $"Connection test failed: {ex.Message}";
+                return Json(new { success = false, message });
             }
         }
 
@@ -1622,7 +1655,8 @@ namespace Lebiru.FileService.Controllers
             }
 
             var sources = GetFetchSources();
-            var source = sources.FirstOrDefault(s => s.Id == fetchSourceId);
+            var owner = User.Identity?.Name ?? string.Empty;
+            var source = sources.FirstOrDefault(s => s.Id == fetchSourceId && OwnsFetchSource(s, owner));
 
             if (source == null) return RedirectToAction("Fetch");
 
@@ -1643,6 +1677,10 @@ namespace Lebiru.FileService.Controllers
         }
 
         #region Fetch Helper Methods
+
+        private bool OwnsFetchSource(FetchSourceModel source, string owner) =>
+            string.Equals(source.OwnerUserId, owner, StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrEmpty(source.OwnerUserId) && User.IsInRole(UserRoles.Admin);
 
         /// <summary>
         /// Get the list of fetch sources from storage
@@ -2072,6 +2110,9 @@ namespace Lebiru.FileService.Controllers
                 Id = Guid.NewGuid().ToString(),
                 FetchSourceId = sourceId,
                 FetchSourceName = source.Name,
+                OwnerUserId = source.OwnerUserId,
+                SourceType = source.Type,
+                SourceUrl = source.Type == "WebPage" ? source.ServerUrl : null,
                 Timestamp = DateTime.UtcNow,
                 Status = FetchStatus.InProgress
             };
@@ -2085,6 +2126,20 @@ namespace Lebiru.FileService.Controllers
                 {
                     case "Gmail":
                         await FetchFromGmail(source, activity);
+                        break;
+                    case "WebPage":
+                        if (_webPageFetchService is null)
+                            throw new InvalidOperationException("Web Page fetching is unavailable.");
+                        var result = await _webPageFetchService.FetchAsync(
+                            source.OwnerUserId, source.ServerUrl, source.DirectoryId, CancellationToken.None);
+                        activity.Status = FetchStatus.Success;
+                        activity.Message = $"Saved {result.FileName}";
+                        activity.FetchedFileCount = 1;
+                        activity.FinalUrl = result.FinalUrl;
+                        activity.HttpStatusCode = result.HttpStatusCode;
+                        activity.ContentType = result.ContentType;
+                        activity.BytesDownloaded = result.BytesDownloaded;
+                        activity.FileId = result.FileId;
                         break;
                     case "FTP":
                         FetchFromFtp(source, activity);

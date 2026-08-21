@@ -37,7 +37,8 @@
                 <div class="form-group">
                     <label for="Type">Source Type</label>
                     <select class="form-control" id="Type" name="Type" required>
-                        <option value="Gmail" selected>Gmail (OAuth)</option>
+                        <option value="Gmail" selected="@(Model.Type == "Gmail" ? "selected" : null)">Gmail (OAuth)</option>
+                        <option value="WebPage" selected="@(Model.Type == "WebPage" ? "selected" : null)">Web Page</option>
                     </select>
                     <small class="form-text text-muted">The type of connection to use for fetching files</small>
                     <span asp-validation-for="Type" class="text-danger"></span>
@@ -51,6 +52,15 @@
                                value="@Model.ServerUrl" placeholder="e.g., ftp.example.com or https://example.com/files">
                         <small class="form-text text-muted">The URL or address of the remote server</small>
                         <span asp-validation-for="ServerUrl" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group" id="directoryDestinationGroup">
+                        <label for="DirectoryId">Destination Directory</label>
+                        <select class="form-control" id="DirectoryId" name="DirectoryId">
+                            <option value="">My files (root)</option>
+                        </select>
+                        <small class="form-text text-muted">The fetched HTML becomes a normal file in this owned directory.</small>
+                        <span asp-validation-for="DirectoryId" class="text-danger"></span>
                     </div>
 
                     <div class="form-row">
@@ -242,6 +252,38 @@
 
 @section Scripts {
     <script>
+        const selectedFetchDirectoryId = '@(Model.DirectoryId?.ToString() ?? "")';
+
+        async function collectFetchDirectories(parentId = null, prefix = '', visited = new Set()) {
+            const endpoint = parentId ? `/api/directories/${parentId}/contents` : '/api/directories/root/contents';
+            const response = await fetch(endpoint);
+            if (!response.ok) throw new Error('Destination directories could not be loaded.');
+            const contents = await response.json();
+            const options = [];
+            for (const directory of contents.directories || []) {
+                if (visited.has(directory.id)) continue;
+                visited.add(directory.id);
+                options.push({ id: directory.id, name: `${prefix}${directory.name}` });
+                options.push(...await collectFetchDirectories(directory.id, `${prefix}${directory.name} / `, visited));
+            }
+            return options;
+        }
+
+        async function loadFetchDirectories() {
+            const select = document.getElementById('DirectoryId');
+            try {
+                for (const directory of await collectFetchDirectories()) {
+                    const option = document.createElement('option');
+                    option.value = directory.id;
+                    option.textContent = directory.name;
+                    option.selected = directory.id === selectedFetchDirectoryId;
+                    select.appendChild(option);
+                }
+            } catch (error) { showNotification('danger', error.message); }
+        }
+
+        loadFetchDirectories();
+
         $(function() {
             // Handle form submission to ensure proper content type
             $('form').on('submit', function(e) {
@@ -264,6 +306,8 @@
             $('#Type').change(function() {
                 // Hide all protocol options
                 $('.protocol-options').hide();
+                $('#DeleteAfterFetch').closest('.form-group').show();
+                $('#directoryDestinationGroup').hide();
                 
                 // Show the relevant options based on selected type
                 var selectedType = $(this).val();
@@ -274,6 +318,16 @@
                         $('#ServerUrl, #Username, #Password, #RemotePath, #Port').closest('.form-group').hide();
                         $('#FilePattern').closest('.form-group').hide();
                         $('#IsRecursive').closest('.form-group').hide();
+                        $('#DeleteAfterFetch').closest('.form-group').hide();
+                        $('#directoryDestinationGroup').hide();
+                        break;
+                    case 'WebPage':
+                        $('#ServerUrl').closest('.form-group').show();
+                        $('#ServerUrl').attr('placeholder', 'https://example.com/article');
+                        $('#Username, #Password, #RemotePath, #Port').closest('.form-group').hide();
+                        $('#FilePattern').closest('.form-group').hide();
+                        $('#IsRecursive, #DeleteAfterFetch').closest('.form-group').hide();
+                        $('#directoryDestinationGroup').show();
                         break;
                     case 'FTP':
                         $('#ftpOptions').show();

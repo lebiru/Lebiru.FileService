@@ -70,7 +70,13 @@ builder.Services.AddSingleton<IFileMetadataStore, FileMetadataStore>();
 builder.Services.AddSingleton<IVirtualDirectoryMetadataStore, VirtualDirectoryMetadataStore>();
 builder.Services.AddSingleton<IVirtualDirectoryService, VirtualDirectoryService>();
 builder.Services.AddSingleton<TelemetryService>();
+builder.Services.AddSingleton<IHostAddressResolver, SystemHostAddressResolver>();
 builder.Services.AddSingleton<SsrfProtectionService>();
+builder.Services.AddSingleton<IWebPageFetchService, WebPageFetchService>();
+builder.Services.AddOptions<WebPageFetchOptions>()
+    .Bind(builder.Configuration.GetSection(WebPageFetchOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 var keyDirectory = Path.Combine(builder.Environment.ContentRootPath, "app-data", "keys");
 Directory.CreateDirectory(keyDirectory);
 builder.Services.AddDataProtection()
@@ -132,6 +138,18 @@ builder.Services.AddHttpClient("GmailApi", client =>
 builder.Services.AddHttpClient("ExternalFetch", client => client.Timeout = TimeSpan.FromSeconds(30))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
     .SetHandlerLifetime(TimeSpan.FromMinutes(10));
+builder.Services.AddHttpClient("WebPageFetch", client =>
+{
+    client.Timeout = Timeout.InfiniteTimeSpan;
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Felix.FileService/1.0 WebPageFetcher");
+    client.DefaultRequestHeaders.Accept.ParseAdd("text/html, application/xhtml+xml;q=0.9");
+}).ConfigurePrimaryHttpMessageHandler(serviceProvider => new SocketsHttpHandler
+{
+    AllowAutoRedirect = false,
+    UseCookies = false,
+    UseProxy = false,
+    ConnectCallback = serviceProvider.GetRequiredService<SsrfProtectionService>().ConnectPublicAsync
+}).SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
 var hangfirePath = Path.Combine(Directory.GetCurrentDirectory(), "app-data", "hangfire.db");
 Directory.CreateDirectory(Path.GetDirectoryName(hangfirePath)!);
@@ -227,6 +245,8 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
+    var webPageFetch = builder.Configuration.GetSection(WebPageFetchOptions.SectionName)
+        .Get<WebPageFetchOptions>() ?? new WebPageFetchOptions();
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -235,6 +255,15 @@ builder.Services.AddRateLimiter(options =>
             PermitLimit = 5,
             Window = TimeSpan.FromMinutes(5),
             QueueLimit = 0
+        }));
+    options.AddPolicy("web-page-fetch", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = webPageFetch.RequestsPerMinute,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
         }));
 });
 
@@ -305,8 +334,8 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions

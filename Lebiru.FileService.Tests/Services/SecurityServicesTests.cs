@@ -1,4 +1,5 @@
 using Lebiru.FileService.Services;
+using System.Net;
 
 namespace Lebiru.FileService.Tests.Services;
 
@@ -41,6 +42,38 @@ public sealed class SecurityServicesTests
     {
         var service = new SsrfProtectionService();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ValidateAsync(candidate));
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => service.ValidateAsync(candidate));
+    }
+
+    [Theory]
+    [InlineData("0.0.0.0")]
+    [InlineData("100.64.0.1")]
+    [InlineData("172.16.0.1")]
+    [InlineData("192.168.1.1")]
+    [InlineData("198.18.0.1")]
+    [InlineData("198.51.100.7")]
+    [InlineData("203.0.113.7")]
+    [InlineData("224.0.0.1")]
+    [InlineData("::1")]
+    [InlineData("fe80::1")]
+    [InlineData("fc00::1")]
+    [InlineData("2001:db8::1")]
+    public void SsrfValidationRecognizesNonPublicAddressRanges(string address) =>
+        Assert.True(SsrfProtectionService.IsRestricted(IPAddress.Parse(address)));
+
+    [Fact]
+    public async Task SsrfValidationRejectsHostnameIfAnyDnsAnswerIsPrivate()
+    {
+        var service = new SsrfProtectionService(new StaticResolver(
+            IPAddress.Parse("93.184.216.34"), IPAddress.Parse("127.0.0.1")));
+
+        await Assert.ThrowsAsync<SsrfRejectedException>(() =>
+            service.ValidateAsync("https://example.test/page"));
+    }
+
+    private sealed class StaticResolver(params IPAddress[] addresses) : IHostAddressResolver
+    {
+        public Task<IPAddress[]> ResolveAsync(string host, CancellationToken cancellationToken) =>
+            Task.FromResult(addresses);
     }
 }

@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.25] - 2026-08-20
+
+### Added
+
+- Added persistent Web Page fetch sources and `POST /api/fetch/web-page` for saving bounded HTML/XHTML responses as ordinary owned files in root or a selected virtual directory.
+- Added Web Page destination selection, source execution, activity metadata, structured logs, OpenTelemetry metrics, per-user rate limiting, concurrency limits, cancellation, and atomic temporary-file finalization.
+- Added deterministic tests for ownership, redirects, HTTP failures, content types, response limits, cancellation cleanup, filename derivation, and SSRF address classification.
+
+### Security
+
+- Added DNS-aware SSRF protection for every initial and redirected destination, blocking local, private, link-local, multicast, reserved, documentation, and cloud metadata address ranges.
+- Pinned outbound connections to validated DNS answers to mitigate DNS rebinding, disabled automatic redirects, cookies, and proxy inheritance, and limited requests to standard HTTP/HTTPS ports.
+- Scoped persisted fetch sources and activity history to their authenticated owner; administrators retain access to unowned legacy records for migration.
+
 ## [0.0.1-preview.24] - 2026-08-20
 
 ### Added

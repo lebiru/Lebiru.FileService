@@ -12,6 +12,7 @@ using Moq;
 using Xunit;
 using Hangfire;
 using Lebiru.FileService.HangfireJobs;
+using System.Security.Claims;
 
 namespace Lebiru.FileService.Tests.Controllers
 {
@@ -130,7 +131,9 @@ namespace Lebiru.FileService.Tests.Controllers
       {
         HttpContext = new DefaultHttpContext
         {
-          Request = { Form = formCollection }
+          Request = { Form = formCollection },
+          User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.Name, "alice")], "Test"))
         }
       };
 

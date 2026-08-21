@@ -48,10 +48,16 @@ namespace Lebiru.FileService.Models
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Type of fetch source (Gmail, FTP, SFTP, HTTP, WebDAV, NetworkShare)
+    /// Type of fetch source (Gmail, WebPage, FTP, SFTP, HTTP, WebDAV, NetworkShare)
     /// </summary>
     [Required(ErrorMessage = "Type is required")]
     public string Type { get; set; } = string.Empty;
+
+    /// <summary>The authenticated user that owns this fetch source.</summary>
+    public string OwnerUserId { get; set; } = string.Empty;
+
+    /// <summary>The destination virtual directory, or null for root.</summary>
+    public Guid? DirectoryId { get; set; }
 
     /// <summary>
     /// Server URL or address
@@ -230,6 +236,30 @@ namespace Lebiru.FileService.Models
     /// Number of files fetched
     /// </summary>
     public int FetchedFileCount { get; set; } = 0;
+
+    /// <summary>The owner of the fetch activity.</summary>
+    public string OwnerUserId { get; set; } = string.Empty;
+
+    /// <summary>The source type that produced the activity.</summary>
+    public string? SourceType { get; set; }
+
+    /// <summary>The requested source URL.</summary>
+    public string? SourceUrl { get; set; }
+
+    /// <summary>The final URL after validated redirects.</summary>
+    public string? FinalUrl { get; set; }
+
+    /// <summary>The successful upstream HTTP status.</summary>
+    public int? HttpStatusCode { get; set; }
+
+    /// <summary>The returned media type.</summary>
+    public string? ContentType { get; set; }
+
+    /// <summary>The number of response bytes stored.</summary>
+    public long? BytesDownloaded { get; set; }
+
+    /// <summary>The created FileService file identifier.</summary>
+    public Guid? FileId { get; set; }
   }
 
   /// <summary>
