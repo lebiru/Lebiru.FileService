@@ -38,6 +38,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **Secure Web Page Ingestion**: 🌍 Save public HTML/XHTML pages as owned files in root or a selected virtual directory.
 - **File View Analytics**: 👁️ Track authorized dedicated-page views, last-viewed time, and bounded daily trends for every managed file.
 - **File Transformation**: 🔄 Transform files using regex patterns to extract and process content.
+- **Outbound Destinations**: ✈️ Stream authorized files to AWS S3, Email, or FTP/FTPS with encrypted credentials and delivery history.
 
 ## Technologies Used
 
@@ -145,6 +146,38 @@ The application provides ETL (Extract, Transform, Load) capabilities for process
 - **Test Feature**: Test transformations on actual files before saving
 - **Output Files**: Transformed content saved as new files for further processing
 - **Data Validation**: Input validation throughout the application prevents injection attacks
+
+### Destinations
+
+Admin and Contributor users can open **Destinations** in the sidebar to create, edit, test, disable, or delete an outbound target. Any authorized managed file—including uploads, fetched source files, and transformed results—can then be sent from its dedicated `/files/{fileId}` page. Sources and Transforms remain independent; the managed file stream is the contract consumed by every destination handler.
+
+Supported destination configuration:
+
+- **S3**: AWS bucket, region, and optional key prefix, plus access key, secret key, and optional session token. Uploads use `If-None-Match: *`, so an existing object fails instead of being silently overwritten. The initial release supports standard AWS regional endpoints only.
+- **Email**: SMTP host/port/TLS, one sender, one recipient, optional subject/body, and optional SMTP username/password. The attachment limit defaults to 20 MiB and is checked before connecting.
+- **FTP**: FTP or explicit FTPS host/port, remote directory, username, and password. Uploads stream to a unique `.partial` path and rename only after success. SFTP is not included in this initial outbound implementation.
+
+Credentials are accepted only on create or rotation, protected at rest with ASP.NET Core Data Protection, and never returned by Destination APIs. Leaving secret fields blank while editing preserves the existing protected credential set.
+
+The `Destinations` configuration section controls the total delivery timeout, bounded retry count, per-user concurrency, requests per minute, and maximum email attachment bytes:
+
+```json
+{
+  "Destinations": {
+    "TimeoutSeconds": 120,
+    "MaxRetries": 2,
+    "MaxConcurrentDeliveriesPerUser": 2,
+    "RequestsPerMinute": 20,
+    "MaxEmailAttachmentBytes": 20971520
+  }
+}
+```
+
+API endpoints include `POST/GET /api/destinations`, `GET/PATCH/DELETE /api/destinations/{id}`, `POST /api/destinations/{id}/test`, `POST /api/files/{fileId}/deliver`, and file/destination delivery-history endpoints. Mutations require the application anti-forgery token in addition to authentication.
+
+Delivery state is persisted as `Pending`, `InProgress`, `Succeeded`, `Failed`, or `Cancelled`. Transient failures use a bounded retry policy; permanent failures and collision errors are not retried. Metrics exported through OpenTelemetry are `fileservice_deliveries_total`, `fileservice_delivery_failures_total`, `fileservice_delivery_bytes_total`, and `fileservice_delivery_duration`, labeled only by bounded destination type and result.
+
+Operational notes: destination and delivery JSON stores are atomically rewritten and are best suited to the current single-instance persistence model. Per-user concurrency is process-local. SMTP/FTP hosts are DNS-checked against private, loopback, link-local, reserved, and metadata ranges before connection; production networks should additionally enforce outbound firewall rules because third-party protocol clients cannot pin the validated DNS address as strictly as the Web Page fetch client.
 
 ### File Operations
 

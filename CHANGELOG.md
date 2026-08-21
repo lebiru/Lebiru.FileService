@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.27] - 2026-08-20
+
+### Added
+
+- Added user-owned Destinations for streaming managed files to AWS S3, Email (SMTP), and FTP/FTPS, with an extensible handler/resolver architecture independent of Sources and Transforms.
+- Added encrypted write-only destination credentials, safe connection testing, configuration rotation, enabled/disabled controls, management UI, sidebar navigation, and a dedicated-file `Send To` action.
+- Added persistent Delivery status/history with bounded transient retries, cancellation, per-user concurrency and rate limits, byte accounting, structured logs, and low-cardinality OpenTelemetry metrics.
+- Added safe S3 collision failure, configurable email attachment limits and header validation, and FTP temporary upload/rename behavior.
+
+### Security
+
+- Enforced destination ownership and existing file authorization before opening file streams, preventing cross-user file/destination combinations.
+- Added public-network validation for SMTP and FTP hosts, path and filename normalization, protected credential persistence, sanitized failures, and secret-free API models/history/logs.
+
+### Testing
+
+- Added deterministic generic, transport, encrypted-secret, SSRF, collision, streaming, retry, cancellation, and cross-user exfiltration coverage; the full Release suite passes with 132 tests.
+
 ## [0.0.1-preview.26] - 2026-08-20
 
 ### Added

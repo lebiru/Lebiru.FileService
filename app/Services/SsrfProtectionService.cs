@@ -58,6 +58,15 @@ public sealed class SsrfProtectionService
         return addresses;
     }
 
+    /// <summary>Validates a user-controlled outbound hostname used by non-HTTP protocols.</summary>
+    public Task<IPAddress[]> ValidateHostAsync(string host, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(host) || host.Length > 253 ||
+            host.Any(character => char.IsWhiteSpace(character) || character is '/' or '\\' or '@'))
+            throw new InvalidOperationException("A valid destination hostname is required.");
+        return ResolvePublicAddressesAsync(host.Trim().TrimEnd('.'), cancellationToken);
+    }
+
     /// <summary>
     /// Resolves, validates, and connects directly to an approved address so DNS cannot be rebound between checks.
     /// </summary>

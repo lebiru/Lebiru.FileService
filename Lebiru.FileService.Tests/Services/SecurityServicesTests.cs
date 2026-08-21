@@ -71,6 +71,15 @@ public sealed class SecurityServicesTests
             service.ValidateAsync("https://example.test/page"));
     }
 
+    [Fact]
+    public async Task NonHttpHostValidationRejectsPrivateDnsAndInvalidHostSyntax()
+    {
+        var service = new SsrfProtectionService(new StaticResolver(IPAddress.Loopback));
+
+        await Assert.ThrowsAsync<SsrfRejectedException>(() => service.ValidateHostAsync("smtp.example.test"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ValidateHostAsync("user@host.example"));
+    }
+
     private sealed class StaticResolver(params IPAddress[] addresses) : IHostAddressResolver
     {
         public Task<IPAddress[]> ResolveAsync(string host, CancellationToken cancellationToken) =>

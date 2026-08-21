@@ -40,6 +40,10 @@ public sealed class TelemetryService : IDisposable
     private readonly Counter<long> _fileViewsCounter;
     private readonly Counter<long> _fileViewDeduplicatedCounter;
     private readonly Counter<long> _fileViewFailuresCounter;
+    private readonly Counter<long> _deliveryCounter;
+    private readonly Counter<long> _deliveryFailuresCounter;
+    private readonly Counter<long> _deliveryBytesCounter;
+    private readonly Histogram<double> _deliveryDuration;
     private readonly ConcurrentDictionary<long, Bucket> _buckets = new();
     private long _totalRequests;
     private long _totalErrors;
@@ -60,6 +64,10 @@ public sealed class TelemetryService : IDisposable
         _fileViewsCounter = _meter.CreateCounter<long>("fileservice_file_views_total", "{view}");
         _fileViewDeduplicatedCounter = _meter.CreateCounter<long>("fileservice_file_view_deduplicated_total", "{view}");
         _fileViewFailuresCounter = _meter.CreateCounter<long>("fileservice_file_view_record_failures_total", "{failure}");
+        _deliveryCounter = _meter.CreateCounter<long>("fileservice_deliveries_total", "{delivery}");
+        _deliveryFailuresCounter = _meter.CreateCounter<long>("fileservice_delivery_failures_total", "{failure}");
+        _deliveryBytesCounter = _meter.CreateCounter<long>("fileservice_delivery_bytes_total", "By");
+        _deliveryDuration = _meter.CreateHistogram<double>("fileservice_delivery_duration", "ms");
     }
 
     /// <summary>Marks a request as active.</summary>
@@ -152,6 +160,15 @@ public sealed class TelemetryService : IDisposable
 
     /// <summary>Records a failed authoritative view-summary update.</summary>
     public void RecordFileViewFailure() => _fileViewFailuresCounter.Add(1);
+
+    /// <summary>Records a completed destination delivery using bounded labels only.</summary>
+    public void RecordDelivery(Models.DestinationType type, bool success, long bytes, double durationMs)
+    {
+        var tags = new TagList { { "destination_type", type.ToString().ToLowerInvariant() }, { "result", success ? "success" : "failure" } };
+        _deliveryCounter.Add(1, tags); _deliveryDuration.Record(durationMs, tags);
+        if (!success) _deliveryFailuresCounter.Add(1, tags);
+        if (bytes > 0) _deliveryBytesCounter.Add(bytes, tags);
+    }
 
     /// <inheritdoc />
     public void Dispose() => _meter.Dispose();

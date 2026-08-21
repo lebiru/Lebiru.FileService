@@ -80,6 +80,21 @@ builder.Services.AddOptions<FileViewOptions>()
 builder.Services.AddSingleton<IHostAddressResolver, SystemHostAddressResolver>();
 builder.Services.AddSingleton<SsrfProtectionService>();
 builder.Services.AddSingleton<IWebPageFetchService, WebPageFetchService>();
+builder.Services.AddSingleton<IDestinationStore, DestinationStore>();
+builder.Services.AddSingleton<IDeliveryStore, DeliveryStore>();
+builder.Services.AddSingleton<IDestinationCredentialProtector, DestinationCredentialProtector>();
+builder.Services.AddSingleton<IS3DestinationTransport, AwsS3DestinationTransport>();
+builder.Services.AddSingleton<IEmailDestinationTransport, MailKitDestinationTransport>();
+builder.Services.AddSingleton<IFtpDestinationTransport, FluentFtpDestinationTransport>();
+builder.Services.AddSingleton<IFileDestination, S3FileDestination>();
+builder.Services.AddSingleton<IFileDestination, EmailFileDestination>();
+builder.Services.AddSingleton<IFileDestination, FtpFileDestination>();
+builder.Services.AddSingleton<IDestinationHandlerResolver, DestinationHandlerResolver>();
+builder.Services.AddSingleton<IDestinationService, DestinationService>();
+builder.Services.AddOptions<DestinationOptions>()
+    .Bind(builder.Configuration.GetSection(DestinationOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddOptions<WebPageFetchOptions>()
     .Bind(builder.Configuration.GetSection(WebPageFetchOptions.SectionName))
     .ValidateDataAnnotations()
@@ -254,6 +269,8 @@ builder.Services.AddRateLimiter(options =>
 {
     var webPageFetch = builder.Configuration.GetSection(WebPageFetchOptions.SectionName)
         .Get<WebPageFetchOptions>() ?? new WebPageFetchOptions();
+    var destinations = builder.Configuration.GetSection(DestinationOptions.SectionName)
+        .Get<DestinationOptions>() ?? new DestinationOptions();
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -271,6 +288,13 @@ builder.Services.AddRateLimiter(options =>
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true
+        }));
+    options.AddPolicy("destinations", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = destinations.RequestsPerMinute, Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0, AutoReplenishment = true
         }));
 });
 

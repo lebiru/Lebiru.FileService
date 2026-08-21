@@ -13,9 +13,11 @@
             <h1 id="file-title">@Model.FileName</h1>
             <p class="file-details-subtitle">@Model.ContentType · @((Model.FileSize / 1024d).ToString("N1")) KB</p>
         </div>
-        <a class="btn btn-primary" href="@Url.Action("DownloadFile", "File", new { filename = Model.FileName })">
-            <i class="fas fa-download" aria-hidden="true"></i> Download
-        </a>
+        <div class="file-header-actions">
+            <select id="destinationSelect" class="form-control" aria-label="Destination"><option value="">Send To…</option></select>
+            <button id="deliverButton" class="btn btn-outline-primary" type="button" disabled><i class="fas fa-paper-plane"></i> Send</button>
+            <a class="btn btn-primary" href="@Url.Action("DownloadFile", "File", new { filename = Model.FileName })"><i class="fas fa-download" aria-hidden="true"></i> Download</a>
+        </div>
     </header>
 
     <section class="file-metric-grid" aria-label="File metrics">
@@ -77,6 +79,8 @@
     .file-details-shell { max-width: 1180px; margin: 0 auto; padding: 1rem 0 3rem; }
     .file-details-header { display:flex; justify-content:space-between; gap:1.5rem; align-items:center; margin-bottom:1.5rem; }
     .file-details-header h1 { margin:.15rem 0; font-size:clamp(1.6rem,3vw,2.35rem); overflow-wrap:anywhere; }
+    .file-header-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .file-header-actions select { min-width:190px; }
     .file-details-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.13em; font-size:.75rem; font-weight:700; color:#7c3aed; }
     .file-details-subtitle { margin:0; color:var(--text-secondary, #64748b); }
     .file-metric-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
@@ -101,5 +105,18 @@
 <script>
     document.querySelectorAll('[data-utc]').forEach(element => {
         if (element.dataset.utc) element.textContent = new Date(element.dataset.utc).toLocaleString();
+    });
+    const destinationSelect = document.getElementById('destinationSelect');
+    const deliverButton = document.getElementById('deliverButton');
+    fetch('/api/destinations').then(response => response.ok ? response.json() : []).then(items => {
+        items.filter(item => item.isEnabled).forEach(item => destinationSelect.add(new Option(`${item.name} · ${['S3','Email','FTP'][item.type]}`, item.id)));
+    });
+    destinationSelect.addEventListener('change', () => deliverButton.disabled = !destinationSelect.value);
+    deliverButton.addEventListener('click', async () => {
+        deliverButton.disabled = true; deliverButton.textContent = 'Sending…';
+        const response = await fetch('/api/files/@Model.Id/deliver', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({destinationId:destinationSelect.value}) });
+        const result = await response.json();
+        showNotification(result.status === 2 ? 'File delivered successfully.' : result.errorMessage || result.title || 'Delivery failed.', result.status === 2 ? 'success' : 'error');
+        deliverButton.textContent = 'Send'; deliverButton.disabled = !destinationSelect.value;
     });
 </script>
