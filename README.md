@@ -190,6 +190,25 @@ The application provides ETL (Extract, Transform, Load) capabilities for process
 
 ## Deployment
 
+### Virtual directories
+
+Felix stores directories as logical metadata in `app-data/directories.json`. File bytes remain in the existing `uploads` object store; moving a file or directory updates metadata only. Existing `fileInfo.json` records are upgraded automatically by the non-destructive `VirtualDirectoriesV1` metadata migration: each receives a stable `Id`, while the absent nullable `DirectoryId` remains `null` and therefore represents root.
+
+The authenticated directory API includes:
+
+| Method | Endpoint | Behavior |
+| --- | --- | --- |
+| `POST` | `/api/directories` | Create a root or nested directory. |
+| `GET` | `/api/directories/root/contents` | List the user's root files, directories, and root breadcrumb. |
+| `GET` | `/api/directories/{id}/contents` | List immediate contents and ordered breadcrumbs. |
+| `PATCH` | `/api/directories/{id}` | Rename and/or move a directory; explicit `parentDirectoryId: null` moves it to root. |
+| `DELETE` | `/api/directories/{id}` | Delete an empty directory; non-empty directories return `409 Conflict`. |
+| `GET` | `/api/directories/{id}/archive` | Download the owned directory tree as a ZIP archive. |
+| `PATCH` | `/api/files/{fileId}/directory` | Move an owned file; `directoryId: null` moves it to root. |
+| `POST` | `/File/Upload` | Existing upload endpoint with an optional multipart `directoryId`. |
+
+Directory IDs are never treated as authorization. Every directory, target parent, file move, listing, breadcrumb traversal, deletion, and archive query is scoped to the authenticated username. Directory names are logical labels and need not be unique. ZIP entry paths are separately normalized to prevent traversal. ZIP generation is disk-spooled and streams each stored object through a fixed-size buffer, so the whole archive never resides in application memory.
+
 ### OpenTelemetry
 
 The application exports structured logs, ASP.NET Core request traces, outbound HTTP traces, runtime metrics, and custom request/error/latency metrics. The built-in dashboard is available at `/Telemetry` after login.

@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.23] - 2026-08-20
+
+### Added
+
+- Added user-owned virtual directories with nested creation, metadata-only file and directory moves, renaming, immediate content listing, and ordered breadcrumbs.
+- Added recursive, disk-spooled directory ZIP downloads with empty-directory preservation and safe archive entry paths.
+- Added stable file metadata IDs and optional `DirectoryId`; null remains the backward-compatible root representation.
+- Added empty-directory deletion with conflict responses for non-empty directories.
+- Added directory and file-placement APIs with OpenAPI documentation.
+
+### Security
+
+- Centralized directory ownership checks across creation, listing, movement, deletion, breadcrumbs, uploads, and archive generation.
+- Added cross-user security, cycle prevention, path traversal, legacy metadata migration, and bounded-memory archive regression tests.
+
+### Changed
+
+- Applied the non-destructive `VirtualDirectoriesV1` JSON metadata migration for historical files without relocating stored objects.
+
 ## [0.0.1-preview.22] - 2026-08-20
 
 ### Fixed

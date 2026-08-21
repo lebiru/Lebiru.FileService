@@ -67,6 +67,8 @@ builder.Services.AddSingleton<IUserService, UserService>();
 // Register MIME validation service as singleton
 builder.Services.AddSingleton<IMimeValidationService, MimeValidationService>();
 builder.Services.AddSingleton<IFileMetadataStore, FileMetadataStore>();
+builder.Services.AddSingleton<IVirtualDirectoryMetadataStore, VirtualDirectoryMetadataStore>();
+builder.Services.AddSingleton<IVirtualDirectoryService, VirtualDirectoryService>();
 builder.Services.AddSingleton<TelemetryService>();
 builder.Services.AddSingleton<SsrfProtectionService>();
 var keyDirectory = Path.Combine(builder.Environment.ContentRootPath, "app-data", "keys");
@@ -153,7 +155,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Felix File Service API",
         Version = "v1",
-        Description = "API for managing and serving files",
+        Description = "API for managing files and user-owned virtual directory hierarchies. A null DirectoryId represents root.",
         Contact = new OpenApiContact
         {
             Name = "Felix File Service",

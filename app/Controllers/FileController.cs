@@ -58,6 +58,7 @@ namespace Lebiru.FileService.Controllers
         private readonly IHttpClientFactory? _httpClientFactory;
         private readonly IDataProtector? _secretProtector;
         private readonly SsrfProtectionService? _ssrfProtection;
+        private readonly IVirtualDirectoryService? _directoryService;
 
         private static readonly object _fileLock = new object();
 
@@ -113,6 +114,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="httpClientFactory">Factory for pooled outbound HTTP connections</param>
         /// <param name="dataProtectionProvider">Protects persisted fetch credentials</param>
         /// <param name="ssrfProtection">Validates outbound destinations</param>
+        /// <param name="directoryService">Validates and manages optional virtual directory placement</param>
         public FileController(
             CleanupJob cleanupJob,
 
@@ -125,7 +127,8 @@ namespace Lebiru.FileService.Controllers
             IFileMetadataStore? metadataStore = null,
             IHttpClientFactory? httpClientFactory = null,
             IDataProtectionProvider? dataProtectionProvider = null,
-            SsrfProtectionService? ssrfProtection = null)
+            SsrfProtectionService? ssrfProtection = null,
+            IVirtualDirectoryService? directoryService = null)
         {
             _cleanupJob = cleanupJob;
 
@@ -145,6 +148,7 @@ namespace Lebiru.FileService.Controllers
             _httpClientFactory = httpClientFactory;
             _secretProtector = dataProtectionProvider?.CreateProtector("Lebiru.FileService.FetchSecrets.v1");
             _ssrfProtection = ssrfProtection;
+            _directoryService = directoryService;
         }
 
         /// <summary>
@@ -308,16 +312,24 @@ namespace Lebiru.FileService.Controllers
         /// </summary>
         /// <param name="files">The file to upload.</param>
         /// <param name="expiryOption">When the file should expire and be deleted. Defaults to never.</param>
+        /// <param name="directoryId">The owned virtual directory, or null to upload to root.</param>
         /// <param name="cancellationToken">Signals that the upload request was aborted.</param>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost("CreateDoc")]
         [HttpPost("Upload")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Contributor}")]
         public async Task<IActionResult> Upload(List<IFormFile> files, [FromForm] ExpiryOption expiryOption = ExpiryOption.Never,
+            [FromForm] Guid? directoryId = null,
             CancellationToken cancellationToken = default)
         {
             if (files == null || files.Count == 0)
                 return BadRequest("No files uploaded.");
+
+            var username = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(username)) return Unauthorized();
+            if (directoryId.HasValue && (_directoryService is null ||
+                !_directoryService.IsOwnedBy(directoryId.Value, username)))
+                return NotFound("Directory not found.");
 
             // Check file size limits and MIME types
             foreach (var file in files)
@@ -367,11 +379,7 @@ namespace Lebiru.FileService.Controllers
                 System.IO.File.SetLastWriteTimeUtc(filePath, DateTime.UtcNow);
 
                 // Add file ownership
-                var username = User.Identity?.Name;
-                if (username != null)
-                {
-                    _userService.AddFileToUser(username, filePath);
-                }
+                _userService.AddFileToUser(username, filePath);
 
                 var uploadTime = DateTime.UtcNow;
                 DateTime? expiryTime = expiryOption switch
@@ -385,12 +393,14 @@ namespace Lebiru.FileService.Controllers
 
                 var fileInfo = new Models.FileInfo
                 {
+                    Id = Guid.NewGuid(),
                     FileName = file.FileName,
                     FilePath = filePath,
                     UploadTime = uploadTime,
                     ExpiryTime = expiryTime,
                     FileSize = file.Length,
-                    Owner = User.Identity?.Name
+                    Owner = username,
+                    DirectoryId = directoryId
                 };
 
                 fileInfos.Add(fileInfo);
@@ -599,12 +609,14 @@ namespace Lebiru.FileService.Controllers
                 {
                     var newFileInfo = new Models.FileInfo
                     {
+                        Id = Guid.NewGuid(),
                         FileName = newFilename,
                         FilePath = destPath,
                         UploadTime = DateTime.UtcNow,
                         ExpiryTime = sourceFileDetails.ExpiryTime, // Keep the same expiry setting
                         FileSize = sourceFileDetails.FileSize,
-                        Owner = User.Identity?.Name
+                        Owner = User.Identity?.Name,
+                        DirectoryId = sourceFileDetails.DirectoryId
                     };
 
                     fileInfos.Add(newFileInfo);
@@ -670,10 +682,12 @@ namespace Lebiru.FileService.Controllers
                 var fileUri = $"{baseUrl}/DownloadFile?filename={Uri.EscapeDataString(file.FileName)}";
                 return new
                 {
+                    file.Id,
                     file.FileName,
                     file.UploadTime,
                     file.ExpiryTime,
                     file.FileSize,
+                    file.DirectoryId,
                     DownloadUri = fileUri
                 };
             }).ToList();
@@ -830,6 +844,7 @@ namespace Lebiru.FileService.Controllers
                     {
                         var newFile = new Models.FileInfo
                         {
+                            Id = Guid.NewGuid(),
                             FileName = fileInfo.Name,
                             FilePath = fileInfo.FullName,
                             FileSize = fileInfo.Length,
@@ -2563,6 +2578,7 @@ namespace Lebiru.FileService.Controllers
                         // Add to file system
                         var emailFileInfo = new Models.FileInfo
                         {
+                            Id = Guid.NewGuid(),
                             FileName = emailFileName,
                             FilePath = emailFilePath,
                             UploadTime = DateTime.UtcNow,
@@ -2669,6 +2685,7 @@ namespace Lebiru.FileService.Controllers
                                 // Add to file system
                                 var fileInfo = new Models.FileInfo
                                 {
+                                    Id = Guid.NewGuid(),
                                     FileName = uniqueFilename,
                                     FilePath = filePath,
                                     UploadTime = DateTime.UtcNow,

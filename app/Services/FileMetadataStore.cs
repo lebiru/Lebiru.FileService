@@ -24,7 +24,21 @@ public sealed class FileMetadataStore : IFileMetadataStore
     public FileMetadataStore(IWebHostEnvironment environment, ILogger<FileMetadataStore> logger)
     {
         _path = Path.Combine(environment.ContentRootPath, "app-data", "fileInfo.json");
-        try { _files = AtomicJsonStore.Read<List<StoredFileInfo>>(_path) ?? []; }
+        try
+        {
+            _files = AtomicJsonStore.Read<List<StoredFileInfo>>(_path) ?? [];
+            var migrated = false;
+            foreach (var file in _files.Where(file => file.Id == Guid.Empty))
+            {
+                file.Id = Guid.NewGuid();
+                migrated = true;
+            }
+            if (migrated)
+            {
+                AtomicJsonStore.Write(_path, _files);
+                logger.LogInformation("Applied metadata migration VirtualDirectoriesV1 to {Count} existing files", _files.Count);
+            }
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Could not load file metadata from {Path}", _path);
@@ -44,6 +58,7 @@ public sealed class FileMetadataStore : IFileMetadataStore
         lock (_sync)
         {
             var replacement = files.Select(Clone).ToList();
+            foreach (var file in replacement.Where(file => file.Id == Guid.Empty)) file.Id = Guid.NewGuid();
             AtomicJsonStore.Write(_path, replacement);
             _files = replacement;
         }
@@ -54,7 +69,8 @@ public sealed class FileMetadataStore : IFileMetadataStore
 
     private static StoredFileInfo Clone(StoredFileInfo file) => new()
     {
-        FileName = file.FileName, FilePath = file.FilePath, FileSize = file.FileSize,
-        UploadTime = file.UploadTime, ExpiryTime = file.ExpiryTime, Owner = file.Owner
+        Id = file.Id, FileName = file.FileName, FilePath = file.FilePath, FileSize = file.FileSize,
+        UploadTime = file.UploadTime, ExpiryTime = file.ExpiryTime, Owner = file.Owner,
+        DirectoryId = file.DirectoryId
     };
 }

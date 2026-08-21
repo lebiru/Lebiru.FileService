@@ -7,6 +7,9 @@ namespace Lebiru.FileService.Models
     /// </summary>
     public class FileInfo
     {
+        /// <summary>The stable metadata identifier for this file.</summary>
+        public Guid Id { get; set; }
+
         /// <summary>
         /// The name of the file
         /// </summary>
@@ -36,6 +39,9 @@ namespace Lebiru.FileService.Models
         /// The username of the user who uploaded the file
         /// </summary>
         public string? Owner { get; set; }
+
+        /// <summary>The virtual directory containing this file; null represents root.</summary>
+        public Guid? DirectoryId { get; set; }
     }
 
     /// <summary>

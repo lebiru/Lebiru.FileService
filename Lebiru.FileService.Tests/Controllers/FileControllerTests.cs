@@ -104,6 +104,9 @@ namespace Lebiru.FileService.Tests.Controllers
 
             var httpContext = new DefaultHttpContext();
             httpContext.RequestServices = serviceProvider;
+            httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.Name, "testuser"), new Claim(ClaimTypes.Role, UserRoles.Contributor)],
+                "Test"));
             var sessionStorage = serviceProvider.GetRequiredService<IDistributedCache>();
             var sessionFeature = new SessionFeature { Session = new DistributedSession(sessionStorage, "test", TimeSpan.FromMinutes(20), TimeSpan.FromMinutes(1), () => true, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance, true) };
             httpContext.Features.Set<ISessionFeature>(sessionFeature);
@@ -250,6 +253,72 @@ namespace Lebiru.FileService.Tests.Controllers
             var objectResult = Assert.IsType<OkObjectResult>(result);
             Assert.Equal(200, objectResult.StatusCode);
             _userServiceMock.Verify(u => u.AddFileToUser(username, It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task Given_OwnedDirectory_When_Uploading_Then_PersistsDirectoryMetadata()
+        {
+            var directoryId = Guid.NewGuid();
+            var stored = new List<Lebiru.FileService.Models.FileInfo>();
+            var metadataStore = new Mock<IFileMetadataStore>();
+            metadataStore.Setup(store => store.GetAll()).Returns(stored);
+            metadataStore.SetupGet(store => store.UsedSpace).Returns(0);
+            metadataStore.Setup(store => store.Replace(It.IsAny<IEnumerable<Lebiru.FileService.Models.FileInfo>>()))
+                .Callback<IEnumerable<Lebiru.FileService.Models.FileInfo>>(files => stored = files.ToList());
+            var directories = new Mock<IVirtualDirectoryService>();
+            directories.Setup(service => service.IsOwnedBy(directoryId, "testuser")).Returns(true);
+            var mimeValidation = new Mock<IMimeValidationService>();
+            mimeValidation.Setup(service => service.ValidateFileDetailed(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns((true, "valid"));
+            var controller = new FileController(
+                new CleanupJob(_tempPath, _userServiceMock.Object), _backgroundJobClientMock.Object,
+                _configMock.Object, _metricsServiceMock.Object, _userServiceMock.Object,
+                mimeValidation.Object, Mock.Of<ILogger<FileController>>(), metadataStore.Object,
+                directoryService: directories.Object)
+            {
+                ControllerContext = _controller.ControllerContext
+            };
+            var fileName = $"directory-upload-{Guid.NewGuid():N}.txt";
+            var file = new Mock<IFormFile>();
+            file.SetupGet(item => item.FileName).Returns(fileName);
+            file.SetupGet(item => item.Length).Returns(0);
+            file.SetupGet(item => item.ContentType).Returns("text/plain");
+            file.Setup(item => item.OpenReadStream()).Returns(() => new MemoryStream());
+
+            try
+            {
+                var result = await controller.Upload([file.Object], ExpiryOption.Never, directoryId);
+
+                Assert.IsType<OkObjectResult>(result);
+                var metadata = Assert.Single(stored);
+                Assert.Equal(directoryId, metadata.DirectoryId);
+                Assert.NotEqual(Guid.Empty, metadata.Id);
+            }
+            finally
+            {
+                var uploaded = Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder, fileName);
+                if (File.Exists(uploaded)) File.Delete(uploaded);
+            }
+        }
+
+        [Fact]
+        public async Task Given_UnownedDirectory_When_Uploading_Then_ReturnsNotFoundWithoutWriting()
+        {
+            var directoryId = Guid.NewGuid();
+            var directories = new Mock<IVirtualDirectoryService>();
+            directories.Setup(service => service.IsOwnedBy(directoryId, "testuser")).Returns(false);
+            var controller = new FileController(
+                new CleanupJob(_tempPath, _userServiceMock.Object), _backgroundJobClientMock.Object,
+                _configMock.Object, _metricsServiceMock.Object, _userServiceMock.Object,
+                Mock.Of<IMimeValidationService>(), Mock.Of<ILogger<FileController>>(),
+                directoryService: directories.Object)
+            {
+                ControllerContext = _controller.ControllerContext
+            };
+
+            var result = await controller.Upload([Mock.Of<IFormFile>()], ExpiryOption.Never, directoryId);
+
+            Assert.IsType<NotFoundObjectResult>(result);
         }
 
         [Fact]
