@@ -356,7 +356,8 @@ public sealed class VirtualDirectoryService : IVirtualDirectoryService
     {
         Id = file.Id, FileName = file.FileName, FilePath = file.FilePath, FileSize = file.FileSize,
         UploadTime = file.UploadTime, ExpiryTime = file.ExpiryTime, Owner = file.Owner,
-        DirectoryId = file.DirectoryId
+        DirectoryId = file.DirectoryId, ViewCount = file.ViewCount, LastViewedAt = file.LastViewedAt,
+        DailyViewCounts = new Dictionary<string, long>(file.DailyViewCounts ?? [])
     };
 }
 

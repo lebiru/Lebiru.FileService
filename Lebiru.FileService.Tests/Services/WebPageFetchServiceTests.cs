@@ -230,11 +230,13 @@ public sealed class WebPageFetchServiceTests : IDisposable
         public List<StoredFileInfo> GetAll() => _files.Select(Clone).ToList();
         public void Replace(IEnumerable<StoredFileInfo> files) => _files = files.Select(Clone).ToList();
         public long UsedSpace => _files.Sum(file => file.FileSize);
+        public StoredFileInfo? RecordView(Guid fileId, DateTime viewedAtUtc) => throw new NotSupportedException();
         private static StoredFileInfo Clone(StoredFileInfo file) => new()
         {
             Id = file.Id, FileName = file.FileName, FilePath = file.FilePath, Owner = file.Owner,
             DirectoryId = file.DirectoryId, FileSize = file.FileSize, UploadTime = file.UploadTime,
-            ExpiryTime = file.ExpiryTime
+            ExpiryTime = file.ExpiryTime, ViewCount = file.ViewCount, LastViewedAt = file.LastViewedAt,
+            DailyViewCounts = new Dictionary<string, long>(file.DailyViewCounts ?? [])
         };
     }
 

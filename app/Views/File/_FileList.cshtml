@@ -511,7 +511,7 @@
                             Actions <i class="fas fa-chevron-down"></i>
                         </button>
                         <div class="action-menu">
-                            <a href="@Url.Action("ViewFile", "File", new { filename = file.FileName })" target="_blank" 
+                            <a href="@Url.RouteUrl("FileDetails", new { fileId = file.Id })" target="_blank"
                                class="action-item"
                                title="Open the file in a new browser tab to view or preview its contents">
                                 <i class="fas fa-eye"></i> View File

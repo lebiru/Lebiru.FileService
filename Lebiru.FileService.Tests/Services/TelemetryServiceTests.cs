@@ -2,6 +2,7 @@ using Lebiru.FileService.Controllers;
 using Lebiru.FileService.Services;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
+using System.Diagnostics.Metrics;
 
 namespace Lebiru.FileService.Tests.Services;
 
@@ -36,5 +37,31 @@ public class TelemetryServiceTests
         Assert.IsType<TelemetrySnapshot>(page.Model);
         var json = Assert.IsType<JsonResult>(controller.Snapshot(15));
         Assert.IsType<TelemetrySnapshot>(json.Value);
+    }
+
+    [Fact]
+    public void EmitsBoundedFileViewCounters()
+    {
+        var measurements = new Dictionary<string, long>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, current) =>
+        {
+            if (instrument.Meter.Name == TelemetryService.MeterName &&
+                instrument.Name.StartsWith("fileservice_file_view", StringComparison.Ordinal))
+                current.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, measurement, _, _) =>
+            measurements[instrument.Name] = measurements.GetValueOrDefault(instrument.Name) + measurement);
+        listener.Start();
+        using var telemetry = new TelemetryService();
+
+        telemetry.RecordFileView();
+        telemetry.RecordFileViewDeduplicated();
+        telemetry.RecordFileViewFailure();
+        listener.RecordObservableInstruments();
+
+        Assert.Equal(1, measurements["fileservice_file_views_total"]);
+        Assert.Equal(1, measurements["fileservice_file_view_deduplicated_total"]);
+        Assert.Equal(1, measurements["fileservice_file_view_record_failures_total"]);
     }
 }

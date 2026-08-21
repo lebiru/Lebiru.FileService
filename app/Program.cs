@@ -70,6 +70,13 @@ builder.Services.AddSingleton<IFileMetadataStore, FileMetadataStore>();
 builder.Services.AddSingleton<IVirtualDirectoryMetadataStore, VirtualDirectoryMetadataStore>();
 builder.Services.AddSingleton<IVirtualDirectoryService, VirtualDirectoryService>();
 builder.Services.AddSingleton<TelemetryService>();
+builder.Services.AddMemoryCache(options => options.SizeLimit = 100_000);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IFileViewTrackingService, FileViewTrackingService>();
+builder.Services.AddOptions<FileViewOptions>()
+    .Bind(builder.Configuration.GetSection(FileViewOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddSingleton<IHostAddressResolver, SystemHostAddressResolver>();
 builder.Services.AddSingleton<SsrfProtectionService>();
 builder.Services.AddSingleton<IWebPageFetchService, WebPageFetchService>();

@@ -22,8 +22,29 @@ public sealed class FileMetadataMigrationTests : IDisposable
 
         Assert.NotEqual(Guid.Empty, file.Id);
         Assert.Null(file.DirectoryId);
+        Assert.Equal(0, file.ViewCount);
+        Assert.Null(file.LastViewedAt);
+        Assert.Empty(file.DailyViewCounts);
         Assert.Contains(file.Id.ToString(), File.ReadAllText(Path.Combine(data, "fileInfo.json")),
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AtomicStoreDoesNotLoseConcurrentViewIncrements()
+    {
+        var data = Path.Combine(_root, "app-data");
+        Directory.CreateDirectory(data);
+        var id = Guid.NewGuid();
+        File.WriteAllText(Path.Combine(data, "fileInfo.json"),
+            $$"""[{"Id":"{{id}}","FileName":"popular.txt","FilePath":"popular.txt","ViewCount":0}]""");
+        var store = new FileMetadataStore(new TestEnvironment(_root), NullLogger<FileMetadataStore>.Instance);
+
+        await Task.WhenAll(Enumerable.Range(0, 100)
+            .Select(_ => Task.Run(() => store.RecordView(id, DateTime.UtcNow))));
+
+        var file = Assert.Single(store.GetAll());
+        Assert.Equal(100, file.ViewCount);
+        Assert.Equal(100, file.DailyViewCounts.Values.Sum());
     }
 
     public void Dispose()

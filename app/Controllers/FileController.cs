@@ -60,6 +60,7 @@ namespace Lebiru.FileService.Controllers
         private readonly SsrfProtectionService? _ssrfProtection;
         private readonly IVirtualDirectoryService? _directoryService;
         private readonly IWebPageFetchService? _webPageFetchService;
+        private readonly IFileViewTrackingService? _fileViewTrackingService;
 
         private static readonly object _fileLock = new object();
 
@@ -117,6 +118,7 @@ namespace Lebiru.FileService.Controllers
         /// <param name="ssrfProtection">Validates outbound destinations</param>
         /// <param name="directoryService">Validates and manages optional virtual directory placement</param>
         /// <param name="webPageFetchService">Securely ingests Web Page fetch sources</param>
+        /// <param name="fileViewTrackingService">Records eligible dedicated-page file views</param>
         public FileController(
             CleanupJob cleanupJob,
 
@@ -131,7 +133,8 @@ namespace Lebiru.FileService.Controllers
             IDataProtectionProvider? dataProtectionProvider = null,
             SsrfProtectionService? ssrfProtection = null,
             IVirtualDirectoryService? directoryService = null,
-            IWebPageFetchService? webPageFetchService = null)
+            IWebPageFetchService? webPageFetchService = null,
+            IFileViewTrackingService? fileViewTrackingService = null)
         {
             _cleanupJob = cleanupJob;
 
@@ -153,6 +156,7 @@ namespace Lebiru.FileService.Controllers
             _ssrfProtection = ssrfProtection;
             _directoryService = directoryService;
             _webPageFetchService = webPageFetchService;
+            _fileViewTrackingService = fileViewTrackingService;
         }
 
         /// <summary>
@@ -546,6 +550,55 @@ namespace Lebiru.FileService.Controllers
 
             // For all other files, use PhysicalFile to allow range requests for media files
             return PhysicalFile(filePath, mimeType, enableRangeProcessing: true);
+        }
+
+        /// <summary>Opens the authorized dedicated page for a managed file and records an eligible view.</summary>
+        /// <param name="fileId">The stable managed-file identifier.</param>
+        /// <returns>The dedicated file page with server-owned view metrics.</returns>
+        [HttpGet("/files/{fileId:guid}", Name = "FileDetails")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult Details(Guid fileId)
+        {
+            var file = _metadataStore?.GetAll().SingleOrDefault(candidate => candidate.Id == fileId);
+            if (file is null || !CanOpenDedicatedFile(file) || !System.IO.File.Exists(file.FilePath))
+                return NotFound();
+
+            var viewer = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(viewer)) return Unauthorized();
+            var tracked = _fileViewTrackingService?.Record(fileId, viewer);
+            if (tracked?.File is not null) file = tracked.File;
+
+            var contentType = GetMimeType(file.FilePath);
+            string? textContent = null;
+            if (IsTextPreview(file.FileName))
+            {
+                try { textContent = System.IO.File.ReadAllText(file.FilePath); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    _logger.LogWarning(exception, "Could not render text preview for {FileId}", fileId);
+                }
+            }
+
+            var series = ParseViewSeries(file);
+            return View("Details", new FileDetailsViewModel(file.Id, file.FileName, file.FileSize,
+                file.UploadTime, file.ExpiryTime, file.DirectoryId, contentType, file.ViewCount,
+                file.LastViewedAt, series, textContent));
+        }
+
+        /// <summary>Returns authorized, read-only file metadata without recording a page view.</summary>
+        /// <param name="fileId">The stable managed-file identifier.</param>
+        /// <returns>Dedicated metadata including server-owned view summary and daily rollups.</returns>
+        [HttpGet("/api/files/{fileId:guid}")]
+        [ProducesResponseType<FileDetailsResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult FileDetailsApi(Guid fileId)
+        {
+            var file = _metadataStore?.GetAll().SingleOrDefault(candidate => candidate.Id == fileId);
+            if (file is null || !CanOpenDedicatedFile(file)) return NotFound();
+            var series = ParseViewSeries(file);
+            return Ok(new FileDetailsResponse(file.Id, file.FileName, file.FileSize,
+                GetMimeType(file.FilePath), file.ViewCount, file.LastViewedAt, series));
         }
 
         /// <summary>
@@ -2842,6 +2895,27 @@ namespace Lebiru.FileService.Controllers
 
         private static string GetUploadPath(string fileName) => FilePathSecurity.ResolveFile(
             Path.Combine(Directory.GetCurrentDirectory(), UploadsFolder), fileName);
+
+        private bool CanOpenDedicatedFile(Models.FileInfo file)
+        {
+            var viewer = User.Identity?.Name;
+            return !string.IsNullOrWhiteSpace(viewer) &&
+                (User.IsInRole(UserRoles.Admin) ||
+                 string.Equals(file.Owner, viewer, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsTextPreview(string fileName) => Path.GetExtension(fileName).ToLowerInvariant() is
+            ".txt" or ".log" or ".csv" or ".md" or ".js" or ".css" or ".xml" or ".json" or
+            ".py" or ".java" or ".cs" or ".html" or ".htm" or ".xhtml";
+
+        private static List<FileViewPoint> ParseViewSeries(Models.FileInfo file) =>
+            (file.DailyViewCounts ?? [])
+                .Select(item => DateTime.TryParseExact(item.Key, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal, out var date)
+                    ? new FileViewPoint(DateTime.SpecifyKind(date, DateTimeKind.Utc), item.Value) : null)
+                .Where(point => point is not null).Cast<FileViewPoint>()
+                .OrderBy(point => point.Date).ToList();
 
         private static bool HasValidFileSignature(IFormFile file)
         {

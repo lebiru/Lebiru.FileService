@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.26] - 2026-08-20
+
+### Added
+
+- Added an authorized `/files/{fileId}` page with file preview, total views, last-viewed time, and a compact 14-day activity trend.
+- Added generic 64-bit `ViewCount`, nullable UTC `LastViewedAt`, and bounded daily view rollups to managed-file metadata for uploads, fetched pages, historical files, and files in virtual directories.
+- Added `GET /api/files/{fileId}` for authorized read-only view summaries without counting metadata requests as page views.
+- Added configurable five-minute same-file/same-viewer deduplication using a bounded in-memory cache.
+- Added OpenTelemetry counters for counted, deduplicated, and failed view-recording operations.
+
+### Security
+
+- Records views only after file existence and owner-or-administrator authorization succeeds; rejected and missing-file requests cannot inflate counters.
+- Keeps all analytics fields server-owned and excludes viewer identities and file identifiers from metric labels.
+
+### Reliability
+
+- Added an atomic metadata-store increment that prevents lost updates and preserves view data through file moves and renames.
+- Keeps authorized file pages available when non-critical analytics persistence fails.
+- Added deterministic migration, deduplication, authorization, metrics, preservation, and 100-way concurrency tests.
+
 ## [0.0.1-preview.25] - 2026-08-20
 
 ### Added

@@ -36,6 +36,7 @@ Lebiru.FileService is a simple ASP.NET Core application that allows users to upl
 - **In-Browser Text Viewing**: 📄 Text files displayed in browser with syntax highlighting and line numbers.
 - **External File Fetching**: 🌐 Fetch files from external sources (FTP, SFTP, HTTP/HTTPS, WebDAV, Network Shares).
 - **Secure Web Page Ingestion**: 🌍 Save public HTML/XHTML pages as owned files in root or a selected virtual directory.
+- **File View Analytics**: 👁️ Track authorized dedicated-page views, last-viewed time, and bounded daily trends for every managed file.
 - **File Transformation**: 🔄 Transform files using regex patterns to extract and process content.
 
 ## Technologies Used
@@ -146,6 +147,16 @@ The application provides ETL (Extract, Transform, Load) capabilities for process
 - **Data Validation**: Input validation throughout the application prevents injection attacks
 
 ### File Operations
+
+#### File view metrics
+
+The **View File** action opens the authorized dedicated page at `/files/{fileId}`. A view is counted only after the current owner or an administrator is authorized and the physical file is available. Downloads, thumbnails, directory listings, ZIP generation, raw previews, and `GET /api/files/{fileId}` metadata requests do not count as views.
+
+Each file stores a 64-bit `ViewCount`, nullable UTC `LastViewedAt`, and up to 366 daily rollups. Historical JSON metadata uses the non-destructive `FileViewsV1` schema-default migration: missing fields deserialize as zero, null, and an empty series. Rename and virtual-directory moves retain the same stable file ID and analytics.
+
+`FileViews.Enabled` is the operational kill switch and `FileViews.DeduplicationWindowSeconds` defaults to 300 seconds. Deduplication uses a bounded, process-local in-memory key composed from file ID and authenticated viewer; therefore separate application instances may each count one view during the same window. Analytics persistence failures are logged and metered but do not block an otherwise authorized page.
+
+The authorized read-only response from `GET /api/files/{fileId}` includes `viewCount`, `lastViewedAt`, and `viewSeries`. OpenTelemetry exports `fileservice_file_views_total`, `fileservice_file_view_deduplicated_total`, and `fileservice_file_view_record_failures_total` without per-file or per-user labels.
 
 - **Uploading Files**: 
   - Use the dedicated upload page with drag-and-drop functionality or the file selector

@@ -84,6 +84,11 @@ public sealed class VirtualDirectoryServiceTests : IDisposable
         var first = _service.Create("alice", "First", null);
         var second = _service.Create("alice", "Second", null);
         var file = AddFile("alice", "move.txt", null, "bytes");
+        var metadata = _files.GetAll();
+        metadata.Single().ViewCount = 7;
+        metadata.Single().LastViewedAt = new DateTime(2026, 8, 21, 10, 0, 0, DateTimeKind.Utc);
+        metadata.Single().DailyViewCounts["2026-08-21"] = 7;
+        _files.Replace(metadata);
         var originalPath = file.FilePath;
 
         Assert.Equal(first.Id, _service.MoveFile("alice", file.Id, first.Id).DirectoryId);
@@ -93,6 +98,8 @@ public sealed class VirtualDirectoryServiceTests : IDisposable
         Assert.Null(movedToRoot.DirectoryId);
         Assert.Equal(originalPath, movedToRoot.FilePath);
         Assert.True(File.Exists(originalPath));
+        Assert.Equal(7, movedToRoot.ViewCount);
+        Assert.Equal(7, movedToRoot.DailyViewCounts["2026-08-21"]);
     }
 
     [Fact]
@@ -250,11 +257,13 @@ public sealed class VirtualDirectoryServiceTests : IDisposable
         public List<StoredFileInfo> GetAll() => _items.Select(Clone).ToList();
         public void Replace(IEnumerable<StoredFileInfo> files) => _items = files.Select(Clone).ToList();
         public long UsedSpace => _items.Sum(file => file.FileSize);
+        public StoredFileInfo? RecordView(Guid fileId, DateTime viewedAtUtc) => throw new NotSupportedException();
         private static StoredFileInfo Clone(StoredFileInfo item) => new()
         {
             Id = item.Id, FileName = item.FileName, FilePath = item.FilePath, Owner = item.Owner,
             DirectoryId = item.DirectoryId, FileSize = item.FileSize, UploadTime = item.UploadTime,
-            ExpiryTime = item.ExpiryTime
+            ExpiryTime = item.ExpiryTime, ViewCount = item.ViewCount, LastViewedAt = item.LastViewedAt,
+            DailyViewCounts = new Dictionary<string, long>(item.DailyViewCounts ?? [])
         };
     }
 

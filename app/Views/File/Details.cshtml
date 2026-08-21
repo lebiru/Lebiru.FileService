@@ -1,0 +1,105 @@
+@model Lebiru.FileService.Models.FileDetailsViewModel
+@{
+    ViewData["Title"] = Model.FileName;
+    var isImage = Model.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+    var isPdf = Model.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase);
+    var maxViews = Math.Max(1L, Model.ViewSeries.Count == 0 ? 1 : Model.ViewSeries.Max(point => point.ViewCount));
+}
+
+<main class="file-details-shell" aria-labelledby="file-title">
+    <header class="file-details-header">
+        <div>
+            <p class="file-details-eyebrow">File details</p>
+            <h1 id="file-title">@Model.FileName</h1>
+            <p class="file-details-subtitle">@Model.ContentType · @((Model.FileSize / 1024d).ToString("N1")) KB</p>
+        </div>
+        <a class="btn btn-primary" href="@Url.Action("DownloadFile", "File", new { filename = Model.FileName })">
+            <i class="fas fa-download" aria-hidden="true"></i> Download
+        </a>
+    </header>
+
+    <section class="file-metric-grid" aria-label="File metrics">
+        <article class="file-metric-card">
+            <span>Views</span>
+            <strong>@Model.ViewCount.ToString("N0")</strong>
+            <small>Eligible dedicated-page views</small>
+        </article>
+        <article class="file-metric-card">
+            <span>Last viewed</span>
+            <strong class="metric-date" data-utc="@Model.LastViewedAt?.ToString("O")">
+                @(Model.LastViewedAt.HasValue ? Model.LastViewedAt.Value.ToString("MMM d, yyyy HH:mm 'UTC'") : "Not viewed yet")
+            </strong>
+            <small>Refreshes inside the deduplication window are excluded</small>
+        </article>
+        <article class="file-metric-card file-trend-card">
+            <span>Recent activity</span>
+            @if (Model.ViewSeries.Count == 0)
+            {
+                <p class="trend-empty">No historical views yet</p>
+            }
+            else
+            {
+                <div class="view-sparkline" role="img" aria-label="Daily file views over time">
+                    @foreach (var point in Model.ViewSeries.TakeLast(14))
+                    {
+                        var height = Math.Max(8, (int)Math.Round(point.ViewCount * 100d / maxViews));
+                        <span style="height:@height%" title="@point.Date.ToString("MMM d"): @point.ViewCount views"></span>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+
+    <section class="file-preview-card" aria-label="File preview">
+        @if (Model.TextContent is not null)
+        {
+            <pre class="file-text-preview">@Model.TextContent</pre>
+        }
+        else if (isImage)
+        {
+            <img src="@Url.Action("ViewFile", "File", new { filename = Model.FileName })" alt="Preview of @Model.FileName" />
+        }
+        else if (isPdf)
+        {
+            <iframe src="@Url.Action("ViewFile", "File", new { filename = Model.FileName })" title="Preview of @Model.FileName"></iframe>
+        }
+        else
+        {
+            <div class="preview-unavailable">
+                <i class="fas fa-file" aria-hidden="true"></i>
+                <p>A browser preview is not available for this file type.</p>
+            </div>
+        }
+    </section>
+</main>
+
+<style>
+    .file-details-shell { max-width: 1180px; margin: 0 auto; padding: 1rem 0 3rem; }
+    .file-details-header { display:flex; justify-content:space-between; gap:1.5rem; align-items:center; margin-bottom:1.5rem; }
+    .file-details-header h1 { margin:.15rem 0; font-size:clamp(1.6rem,3vw,2.35rem); overflow-wrap:anywhere; }
+    .file-details-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.13em; font-size:.75rem; font-weight:700; color:#7c3aed; }
+    .file-details-subtitle { margin:0; color:var(--text-secondary, #64748b); }
+    .file-metric-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
+    .file-metric-card,.file-preview-card { border:1px solid var(--border-color,rgba(148,163,184,.25)); background:var(--card-bg,#fff); border-radius:18px; box-shadow:0 14px 40px rgba(15,23,42,.08); }
+    .file-metric-card { min-height:145px; padding:1.2rem; display:flex; flex-direction:column; }
+    .file-metric-card>span { color:var(--text-secondary,#64748b); font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+    .file-metric-card strong { font-size:2rem; margin:.45rem 0 .2rem; }
+    .file-metric-card .metric-date { font-size:1rem; line-height:1.45; }
+    .file-metric-card small { color:var(--text-secondary,#64748b); margin-top:auto; }
+    .view-sparkline { height:78px; display:flex; align-items:flex-end; gap:5px; margin-top:1rem; }
+    .view-sparkline span { flex:1; min-width:5px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg,#8b5cf6,#2563eb); }
+    .trend-empty { color:var(--text-secondary,#64748b); margin:auto 0; }
+    .file-preview-card { min-height:360px; overflow:hidden; display:grid; place-items:center; }
+    .file-preview-card img { max-width:100%; max-height:72vh; object-fit:contain; }
+    .file-preview-card iframe { width:100%; height:72vh; border:0; }
+    .file-text-preview { width:100%; min-height:360px; max-height:72vh; overflow:auto; margin:0; padding:1.4rem; white-space:pre-wrap; overflow-wrap:anywhere; color:inherit; background:transparent; }
+    .preview-unavailable { text-align:center; color:var(--text-secondary,#64748b); padding:4rem 1rem; }
+    .preview-unavailable i { font-size:3rem; margin-bottom:1rem; }
+    @@media (max-width: 800px) { .file-metric-grid { grid-template-columns:1fr; } .file-details-header { align-items:flex-start; flex-direction:column; } }
+</style>
+
+<script>
+    document.querySelectorAll('[data-utc]').forEach(element => {
+        if (element.dataset.utc) element.textContent = new Date(element.dataset.utc).toLocaleString();
+    });
+</script>

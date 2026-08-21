@@ -11,6 +11,8 @@ public interface IFileMetadataStore
     void Replace(IEnumerable<StoredFileInfo> files);
     /// <summary>Gets the total number of bytes represented by the current snapshot.</summary>
     long UsedSpace { get; }
+    /// <summary>Atomically increments a file's view summary and daily UTC rollup.</summary>
+    StoredFileInfo? RecordView(Guid fileId, DateTime viewedAtUtc);
 }
 
 /// <inheritdoc />
@@ -67,10 +69,32 @@ public sealed class FileMetadataStore : IFileMetadataStore
     /// <inheritdoc />
     public long UsedSpace { get { lock (_sync) return _files.Sum(file => file.FileSize); } }
 
+    /// <inheritdoc />
+    public StoredFileInfo? RecordView(Guid fileId, DateTime viewedAtUtc)
+    {
+        lock (_sync)
+        {
+            var replacement = _files.Select(Clone).ToList();
+            var file = replacement.SingleOrDefault(candidate => candidate.Id == fileId);
+            if (file is null) return null;
+            checked { file.ViewCount++; }
+            file.LastViewedAt = DateTime.SpecifyKind(viewedAtUtc, DateTimeKind.Utc);
+            file.DailyViewCounts ??= [];
+            var day = file.LastViewedAt.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            checked { file.DailyViewCounts[day] = file.DailyViewCounts.GetValueOrDefault(day) + 1; }
+            foreach (var oldDay in file.DailyViewCounts.Keys.OrderByDescending(key => key).Skip(366).ToList())
+                file.DailyViewCounts.Remove(oldDay);
+            AtomicJsonStore.Write(_path, replacement);
+            _files = replacement;
+            return Clone(file);
+        }
+    }
+
     private static StoredFileInfo Clone(StoredFileInfo file) => new()
     {
         Id = file.Id, FileName = file.FileName, FilePath = file.FilePath, FileSize = file.FileSize,
         UploadTime = file.UploadTime, ExpiryTime = file.ExpiryTime, Owner = file.Owner,
-        DirectoryId = file.DirectoryId
+        DirectoryId = file.DirectoryId, ViewCount = file.ViewCount, LastViewedAt = file.LastViewedAt,
+        DailyViewCounts = new Dictionary<string, long>(file.DailyViewCounts ?? [])
     };
 }

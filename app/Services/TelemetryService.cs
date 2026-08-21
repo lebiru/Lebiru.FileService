@@ -37,6 +37,9 @@ public sealed class TelemetryService : IDisposable
     private readonly Counter<long> _webPageFetchBytesCounter;
     private readonly Counter<long> _webPageFetchSsrfBlockedCounter;
     private readonly Histogram<double> _webPageFetchDurationHistogram;
+    private readonly Counter<long> _fileViewsCounter;
+    private readonly Counter<long> _fileViewDeduplicatedCounter;
+    private readonly Counter<long> _fileViewFailuresCounter;
     private readonly ConcurrentDictionary<long, Bucket> _buckets = new();
     private long _totalRequests;
     private long _totalErrors;
@@ -54,6 +57,9 @@ public sealed class TelemetryService : IDisposable
         _webPageFetchBytesCounter = _meter.CreateCounter<long>("lebiru.webpage.fetch.bytes", "By");
         _webPageFetchSsrfBlockedCounter = _meter.CreateCounter<long>("lebiru.webpage.fetch.ssrf_blocked", "{fetch}");
         _webPageFetchDurationHistogram = _meter.CreateHistogram<double>("lebiru.webpage.fetch.duration", "ms");
+        _fileViewsCounter = _meter.CreateCounter<long>("fileservice_file_views_total", "{view}");
+        _fileViewDeduplicatedCounter = _meter.CreateCounter<long>("fileservice_file_view_deduplicated_total", "{view}");
+        _fileViewFailuresCounter = _meter.CreateCounter<long>("fileservice_file_view_record_failures_total", "{failure}");
     }
 
     /// <summary>Marks a request as active.</summary>
@@ -137,6 +143,15 @@ public sealed class TelemetryService : IDisposable
         if (bytes > 0) _webPageFetchBytesCounter.Add(bytes, tags);
         if (ssrfBlocked) _webPageFetchSsrfBlockedCounter.Add(1);
     }
+
+    /// <summary>Records one eligible dedicated file-page view.</summary>
+    public void RecordFileView() => _fileViewsCounter.Add(1);
+
+    /// <summary>Records one refresh suppressed by the view deduplication window.</summary>
+    public void RecordFileViewDeduplicated() => _fileViewDeduplicatedCounter.Add(1);
+
+    /// <summary>Records a failed authoritative view-summary update.</summary>
+    public void RecordFileViewFailure() => _fileViewFailuresCounter.Add(1);
 
     /// <inheritdoc />
     public void Dispose() => _meter.Dispose();

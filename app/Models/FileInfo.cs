@@ -42,6 +42,15 @@ namespace Lebiru.FileService.Models
 
         /// <summary>The virtual directory containing this file; null represents root.</summary>
         public Guid? DirectoryId { get; set; }
+
+        /// <summary>Total eligible dedicated-page views recorded for this file.</summary>
+        public long ViewCount { get; set; }
+
+        /// <summary>UTC timestamp of the most recent eligible dedicated-page view.</summary>
+        public DateTime? LastViewedAt { get; set; }
+
+        /// <summary>Bounded UTC daily view rollups used for per-file trend display.</summary>
+        public Dictionary<string, long> DailyViewCounts { get; set; } = [];
     }
 
     /// <summary>
