@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.28] - 2026-08-21
+
+### Changed
+
+- Reworked the Destinations management page to use the same container, heading, card, table, badge, modal, form, alert, typography, dark-mode, and responsive patterns as the existing Sources and Transform pages.
+- Added clear loading and empty states, destination counts, connection and credential status, accessible action labels, inline enable/disable controls, and consistent user feedback for every operation.
+- Updated the mobile bottom navigation grid to accommodate Destinations as the fifth workspace page without wrapping or clipping.
+
+### Fixed
+
+- Replaced the page’s dependency on an unavailable global notification function with self-contained application alerts and resilient API error handling.
+- Preserved credentials during ordinary edits while correctly requiring or submitting a new credential set when the destination type changes.
+
 ## [0.0.1-preview.27] - 2026-08-20
 
 ### Added

@@ -197,7 +197,7 @@ body.dark-mode .table-hover tbody tr:hover, body.dark-mode .file-table tr:hover 
 @media (max-width: 767.98px) {
   .sidebar { position: fixed !important; top: auto !important; bottom: 0 !important; width: 100% !important; height: 68px !important; padding: .45rem !important; border: 0; border-top: 1px solid var(--line); z-index: 1040 !important; }
   .sidebar-label { display: none; }
-  .sidebar-content { display: grid; grid-template-columns: repeat(4, 1fr); gap: .2rem; }
+  .sidebar-content { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .2rem; }
   .sidebar-item { flex-direction: column; justify-content: center; gap: .1rem; min-height: 56px; margin: 0; padding: .25rem !important; font-size: .67rem; }
   .sidebar-item i { width: auto !important; }
   .sidebar-text { margin: 0 !important; }
