@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.24] - 2026-08-20
+
+### Added
+
+- Added a responsive virtual-directory browser to the file dashboard with folder cards, breadcrumbs, creation, rename, move, empty-folder deletion, and folder ZIP downloads.
+- Added an accessible destination picker for moving owned files and folders through the UI.
+- Added a destination-folder selector to the upload page and preserved the selected directory after upload.
+
+### Changed
+
+- Scoped dashboard pagination, sorting, and file counts to the authenticated user's current virtual directory.
+
 ## [0.0.1-preview.23] - 2026-08-20
 
 ### Added

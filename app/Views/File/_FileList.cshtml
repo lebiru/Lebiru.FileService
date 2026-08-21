@@ -437,6 +437,7 @@
             extension == ".bmp";
             var isAdmin = User.IsInRole(UserRoles.Admin);
             var canDelete = isAdmin || User.Identity?.Name == file.Owner;
+            var canOrganize = User.Identity?.Name == file.Owner && file.Id != Guid.Empty;
 
             <tr class="fileRow">
                 <td class="col-select">
@@ -545,6 +546,14 @@
                                     title="Rename this file">
                                 <i class="fas fa-edit"></i> Rename
                             </button>
+                            @if (canOrganize)
+                            {
+                                <button type="button" class="action-item" data-file-id="@file.Id" data-file-name="@file.FileName"
+                                        onclick="showMoveFileDialog(this.dataset.fileId, this.dataset.fileName); return false;"
+                                        title="Move this file to another folder">
+                                    <i class="fas fa-folder-open"></i> Move to folder
+                                </button>
+                            }
                             @if (canDelete)
                             {
                                 <button onclick="deleteFile('@file.FileName'); return false;" 

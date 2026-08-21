@@ -5,6 +5,11 @@
     ViewData["Title"] = "Dashboard";
     Layout = "_Layout";
     var expiryOptions = (ExpiryOption[])ViewBag.ExpiryOptions;
+    var directoryContents = ViewBag.DirectoryContents as DirectoryContents;
+    var currentDirectoryId = (Guid?)ViewBag.CurrentDirectoryId;
+    var parentDirectoryId = directoryContents?.Breadcrumbs.Count > 1
+        ? directoryContents.Breadcrumbs[^2].Id : null;
+    var canManageDirectories = User.IsInRole(UserRoles.Admin) || User.IsInRole(UserRoles.Contributor);
 }
 
 <!DOCTYPE html>
@@ -533,7 +538,108 @@
         body.dark-mode .last-updated {
             border-top-color: #444;
         }
+
+        .directory-browser {
+            margin-bottom: 24px;
+            padding: 22px;
+            border: 1px solid rgba(99, 102, 241, .18);
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(79, 70, 229, .08), rgba(14, 165, 233, .05) 55%, rgba(255,255,255,.92));
+            box-shadow: 0 16px 40px rgba(15, 23, 42, .08);
+        }
+        body.dark-mode .directory-browser {
+            background: linear-gradient(135deg, rgba(79, 70, 229, .24), rgba(14, 165, 233, .1) 55%, rgba(20,25,35,.94));
+            border-color: rgba(129, 140, 248, .3);
+        }
+        .directory-heading, .directory-toolbar, .directory-breadcrumbs, .directory-grid { display: flex; align-items: center; }
+        .directory-heading { justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+        .directory-heading h2 { margin: 0; font-size: 1.35rem; font-weight: 700; }
+        .directory-subtitle { margin: 4px 0 0; color: #64748b; }
+        body.dark-mode .directory-subtitle { color: #a9b4c6; }
+        .directory-toolbar { gap: 8px; flex-wrap: wrap; }
+        .directory-breadcrumbs { gap: 7px; flex-wrap: wrap; margin: 18px 0; font-size: .95rem; }
+        .directory-breadcrumbs a { color: #4f46e5; font-weight: 600; }
+        body.dark-mode .directory-breadcrumbs a { color: #a5b4fc; }
+        .directory-grid { align-items: stretch; gap: 12px; flex-wrap: wrap; }
+        .directory-card {
+            display: flex; align-items: center; gap: 12px; min-width: 210px; max-width: 320px; flex: 1 1 220px;
+            padding: 15px 17px; border: 1px solid rgba(99,102,241,.2); border-radius: 14px;
+            background: rgba(255,255,255,.88); color: #172033; text-decoration: none; transition: .18s ease;
+        }
+        .directory-card:hover, .directory-card:focus-visible { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(79,70,229,.14); text-decoration: none; }
+        .directory-card i { color: #f59e0b; font-size: 1.35rem; }
+        .directory-card span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+        body.dark-mode .directory-card { background: rgba(29,36,50,.9); color: #eef2ff; border-color: rgba(129,140,248,.28); }
+        .directory-empty { color: #64748b; margin: 0; }
+        .directory-dialog { width: min(480px, calc(100vw - 32px)); border: 0; border-radius: 16px; padding: 0; box-shadow: 0 25px 80px rgba(15,23,42,.3); }
+        .directory-dialog::backdrop { background: rgba(15,23,42,.6); backdrop-filter: blur(3px); }
+        .directory-dialog-content { padding: 24px; }
+        .directory-dialog-content h3 { margin-top: 0; }
+        .directory-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+        .directory-dialog select { width: 100%; min-height: 44px; }
+        @@media (max-width: 720px) { .directory-browser { padding: 17px; } .directory-toolbar .btn { flex: 1 1 auto; } }
     </style>
+
+    @if (directoryContents is not null)
+    {
+        <section class="directory-browser" aria-labelledby="directory-title">
+            <div class="directory-heading">
+                <div>
+                    <h2 id="directory-title"><i class="fas fa-folder-open" aria-hidden="true"></i> @(directoryContents.Directory?.Name ?? "My files")</h2>
+                    <p class="directory-subtitle">Browse folders and organize files without changing where file data is stored.</p>
+                </div>
+                <div class="directory-toolbar">
+                    @if (canManageDirectories)
+                    {
+                        <button type="button" class="btn btn-primary" onclick="createDirectory()"><i class="fas fa-folder-plus"></i> New folder</button>
+                        <a class="btn btn-success" href="/File/Upload@(currentDirectoryId.HasValue ? $"?directoryId={currentDirectoryId}" : "")"><i class="fas fa-cloud-upload-alt"></i> Upload here</a>
+                    }
+                    @if (currentDirectoryId.HasValue)
+                    {
+                        <a class="btn btn-info" href="/api/directories/@currentDirectoryId/archive"><i class="fas fa-file-archive"></i> Download folder</a>
+                        @if (canManageDirectories)
+                        {
+                            <button type="button" class="btn btn-secondary" onclick="renameCurrentDirectory()"><i class="fas fa-pen"></i> Rename</button>
+                            <button type="button" class="btn btn-secondary" onclick="openDirectoryMoveDialog()"><i class="fas fa-folder-open"></i> Move</button>
+                            <button type="button" class="btn btn-danger" onclick="deleteCurrentDirectory()"><i class="fas fa-trash"></i> Delete</button>
+                        }
+                    }
+                </div>
+            </div>
+            <nav class="directory-breadcrumbs" aria-label="Directory breadcrumbs">
+                @foreach (var crumb in directoryContents.Breadcrumbs)
+                {
+                    <a href="/File/Home@(crumb.Id.HasValue ? $"?directoryId={crumb.Id}" : "")">@crumb.Name</a>
+                    @if (crumb != directoryContents.Breadcrumbs.Last()) { <i class="fas fa-chevron-right" aria-hidden="true"></i> }
+                }
+            </nav>
+            <div class="directory-grid" aria-label="Folders">
+                @foreach (var directory in directoryContents.Directories)
+                {
+                    <a class="directory-card" href="/File/Home?directoryId=@directory.Id">
+                        <i class="fas fa-folder" aria-hidden="true"></i><span>@directory.Name</span>
+                    </a>
+                }
+                @if (directoryContents.Directories.Count == 0)
+                {
+                    <p class="directory-empty">No folders here yet.</p>
+                }
+            </div>
+        </section>
+    }
+
+    <dialog id="directoryMoveDialog" class="directory-dialog" aria-labelledby="directory-move-title">
+        <div class="directory-dialog-content">
+            <h3 id="directory-move-title">Move item</h3>
+            <p id="directoryMoveDescription">Choose a destination folder.</p>
+            <label for="directoryMoveTarget">Destination</label>
+            <select id="directoryMoveTarget" class="form-control"><option value="">My files (root)</option></select>
+            <div class="directory-dialog-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeDirectoryMoveDialog()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmDirectoryMove()">Move</button>
+            </div>
+        </div>
+    </dialog>
 
     <!-- Search bar with improved look and feel -->
     <div class="input-group mb-3" style="max-width: 100%;">
@@ -603,10 +709,23 @@
         var totalItems = @(((PaginationModel)ViewBag.Pagination).TotalItems);
         var totalPages = @(((PaginationModel)ViewBag.Pagination).TotalPages);
         var currentSort = (document.getElementById('fileList')?.dataset.currentSort) || '@ViewBag.Sort';
+        const currentDirectoryId = '@(currentDirectoryId?.ToString() ?? "")';
+        const parentDirectoryId = '@(parentDirectoryId?.ToString() ?? "")';
+        const currentDirectoryName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(directoryContents?.Directory?.Name ?? "My files"));
+        let pendingMove = null;
+
+        function withCurrentDirectory(url) {
+            if (currentDirectoryId) url.searchParams.set('directoryId', currentDirectoryId);
+            return url;
+        }
 
         function loadPage(page) {
             const sort = currentSort;
-            fetch('/File/List?page=' + page + '&itemsPerPage=' + itemsPerPage + '&sort=' + encodeURIComponent(sort))
+            const listUrl = withCurrentDirectory(new URL('/File/List', window.location.origin));
+            listUrl.searchParams.set('page', page);
+            listUrl.searchParams.set('itemsPerPage', itemsPerPage);
+            listUrl.searchParams.set('sort', sort);
+            fetch(listUrl)
                 .then(response => response.text())
                 .then(html => {
                     const fileList = document.getElementById('fileList');
@@ -624,6 +743,7 @@
                     url.searchParams.set('page', page);
                     url.searchParams.set('itemsPerPage', itemsPerPage);
                     url.searchParams.set('sort', sort);
+                    if (currentDirectoryId) url.searchParams.set('directoryId', currentDirectoryId);
                     window.history.replaceState({ page, itemsPerPage, sort }, '', url);
                     
                     // Make an additional call to ensure session is updated with current page
@@ -731,7 +851,7 @@
         }
 
         function calculateTotalPages() {
-            fetch('/File/GetTotalFiles')
+            fetch(withCurrentDirectory(new URL('/File/GetTotalFiles', window.location.origin)))
                 .then(response => response.json())
                 .then(total => {
                     totalItems = parseInt(total, 10) || 0;
@@ -744,6 +864,103 @@
                     }
                 })
                 .catch(error => console.error('Error calculating total pages:', error));
+        }
+
+        async function directoryRequest(url, options = {}) {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                let message = `Request failed (${response.status})`;
+                try {
+                    const body = await response.json();
+                    message = body.error || body.title || message;
+                } catch { }
+                throw new Error(message);
+            }
+            if (response.status === 204) return null;
+            return response.json();
+        }
+
+        async function createDirectory() {
+            const name = window.prompt('Folder name');
+            if (!name) return;
+            try {
+                await directoryRequest('/api/directories', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, parentDirectoryId: currentDirectoryId || null })
+                });
+                window.location.reload();
+            } catch (error) { showNotification(error.message, 'error'); }
+        }
+
+        async function renameCurrentDirectory() {
+            const name = window.prompt('New folder name', currentDirectoryName);
+            if (!name || !currentDirectoryId) return;
+            try {
+                await directoryRequest(`/api/directories/${currentDirectoryId}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
+                });
+                window.location.reload();
+            } catch (error) { showNotification(error.message, 'error'); }
+        }
+
+        async function deleteCurrentDirectory() {
+            if (!currentDirectoryId || !window.confirm(`Delete the empty folder “${currentDirectoryName}”?`)) return;
+            try {
+                await directoryRequest(`/api/directories/${currentDirectoryId}`, { method: 'DELETE' });
+                window.location.href = `/File/Home${parentDirectoryId ? `?directoryId=${parentDirectoryId}` : ''}`;
+            } catch (error) { showNotification(error.message, 'error'); }
+        }
+
+        async function collectDirectoryOptions(parentId = null, prefix = '', visited = new Set(), excludedBranch = null) {
+            const endpoint = parentId ? `/api/directories/${parentId}/contents` : '/api/directories/root/contents';
+            const contents = await directoryRequest(endpoint);
+            const options = [];
+            for (const directory of contents.directories || []) {
+                if (visited.has(directory.id)) continue;
+                visited.add(directory.id);
+                if (directory.id === excludedBranch) continue;
+                options.push({ id: directory.id, name: `${prefix}${directory.name}` });
+                options.push(...await collectDirectoryOptions(directory.id, `${prefix}${directory.name} / `, visited, excludedBranch));
+            }
+            return options;
+        }
+
+        async function openMoveDialog(kind, id, label) {
+            pendingMove = { kind, id };
+            const dialog = document.getElementById('directoryMoveDialog');
+            const select = document.getElementById('directoryMoveTarget');
+            document.getElementById('directory-move-title').textContent = `Move ${kind === 'file' ? 'file' : 'folder'}`;
+            document.getElementById('directoryMoveDescription').textContent = `Choose a destination for “${label}”.`;
+            select.innerHTML = '<option value="">My files (root)</option>';
+            try {
+                const options = await collectDirectoryOptions(null, '', new Set(), kind === 'directory' ? id : null);
+                for (const option of options) {
+                    const element = document.createElement('option');
+                    element.value = option.id;
+                    element.textContent = option.name;
+                    select.appendChild(element);
+                }
+                dialog.showModal();
+            } catch (error) { showNotification(error.message, 'error'); }
+        }
+
+        function showMoveFileDialog(fileId, fileName) { openMoveDialog('file', fileId, fileName); }
+        function openDirectoryMoveDialog() { openMoveDialog('directory', currentDirectoryId, currentDirectoryName); }
+        function closeDirectoryMoveDialog() { document.getElementById('directoryMoveDialog').close(); pendingMove = null; }
+
+        async function confirmDirectoryMove() {
+            if (!pendingMove) return;
+            const target = document.getElementById('directoryMoveTarget').value || null;
+            const url = pendingMove.kind === 'file'
+                ? `/api/files/${pendingMove.id}/directory` : `/api/directories/${pendingMove.id}`;
+            const body = pendingMove.kind === 'file' ? { directoryId: target } : { parentDirectoryId: target };
+            try {
+                await directoryRequest(url, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                closeDirectoryMoveDialog();
+                window.location.reload();
+            } catch (error) { showNotification(error.message, 'error'); }
         }
 
         document.addEventListener('DOMContentLoaded', function() {

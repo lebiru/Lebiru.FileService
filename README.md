@@ -209,6 +209,8 @@ The authenticated directory API includes:
 
 Directory IDs are never treated as authorization. Every directory, target parent, file move, listing, breadcrumb traversal, deletion, and archive query is scoped to the authenticated username. Directory names are logical labels and need not be unique. ZIP entry paths are separately normalized to prevent traversal. ZIP generation is disk-spooled and streams each stored object through a fixed-size buffer, so the whole archive never resides in application memory.
 
+The dashboard provides the same functionality visually: folder cards and breadcrumbs navigate the hierarchy, the toolbar creates and manages folders, each owned file has a **Move to folder** action, and **Upload here** opens the upload page with the current destination selected. The upload page can also target any owned nested folder directly.
+
 ### OpenTelemetry
 
 The application exports structured logs, ASP.NET Core request traces, outbound HTTP traces, runtime metrics, and custom request/error/latency metrics. The built-in dashboard is available at `/Telemetry` after login.

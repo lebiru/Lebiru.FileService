@@ -179,6 +179,39 @@ namespace Lebiru.FileService.Tests.Controllers
             Assert.Equal(sort, result.ViewData["Sort"]);
         }
 
+        [Fact]
+        public void Given_Directory_When_ListingFiles_Then_ReturnsOnlyOwnedFilesInThatDirectory()
+        {
+            var directoryId = Guid.NewGuid();
+            var files = new List<Lebiru.FileService.Models.FileInfo>
+            {
+                new() { Id = Guid.NewGuid(), FileName = "inside.txt", FilePath = "inside.txt", Owner = "testuser", DirectoryId = directoryId },
+                new() { Id = Guid.NewGuid(), FileName = "root.txt", FilePath = "root.txt", Owner = "testuser", DirectoryId = null },
+                new() { Id = Guid.NewGuid(), FileName = "other-user.txt", FilePath = "other-user.txt", Owner = "other", DirectoryId = directoryId }
+            };
+            var metadataStore = new Mock<IFileMetadataStore>();
+            metadataStore.Setup(store => store.GetAll()).Returns(files);
+            var directories = new Mock<IVirtualDirectoryService>();
+            directories.Setup(service => service.GetContents("testuser", directoryId)).Returns(
+                new DirectoryContents(
+                    new DirectoryItem(directoryId, "Reports", null, DateTime.UtcNow, DateTime.UtcNow),
+                    [], [], [new DirectoryBreadcrumb(null, "Root"), new DirectoryBreadcrumb(directoryId, "Reports")]));
+            var controller = new FileController(
+                new CleanupJob(_tempPath, _userServiceMock.Object), _backgroundJobClientMock.Object,
+                _configMock.Object, _metricsServiceMock.Object, _userServiceMock.Object,
+                Mock.Of<IMimeValidationService>(), Mock.Of<ILogger<FileController>>(), metadataStore.Object,
+                directoryService: directories.Object)
+            {
+                ControllerContext = _controller.ControllerContext
+            };
+
+            var result = Assert.IsType<PartialViewResult>(controller.List(directoryId: directoryId));
+            var model = Assert.IsType<List<Lebiru.FileService.Models.FileInfo>>(result.Model);
+
+            Assert.Equal("inside.txt", Assert.Single(model).FileName);
+            Assert.Equal(directoryId, result.ViewData["CurrentDirectoryId"]);
+        }
+
         [Theory]
         [InlineData(ExpiryOption.Never)]      // No expiry
         [InlineData(ExpiryOption.OneHour)]    // 1 hour

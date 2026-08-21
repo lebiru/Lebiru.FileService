@@ -154,11 +154,13 @@ namespace Lebiru.FileService.Controllers
         /// <summary>
         /// The home page for the app. Displays current files hosted on FileService.
         /// </summary>
+        /// <param name="directoryId">The owned virtual directory to display; null displays root.</param>
         /// <returns></returns>
         [HttpGet("Home")]
-        public IActionResult Index()
+        public IActionResult Index(Guid? directoryId = null)
         {
-            var fileInfos = FileInfos;
+            var fileInfos = GetFilesForDirectory(directoryId, out var directoryContents);
+            if (directoryId.HasValue && directoryContents is null) return NotFound();
 
             // Default sort: newest first
             fileInfos = fileInfos
@@ -201,6 +203,8 @@ namespace Lebiru.FileService.Controllers
             ViewBag.FileCount = fileInfos.Count;
             ViewBag.Pagination = pagination;
             ViewBag.Sort = "upload_desc";
+            ViewBag.DirectoryContents = directoryContents;
+            ViewBag.CurrentDirectoryId = directoryId;
 
             // Check the Dark Mode setting
             var isDarkMode = HttpContext.Session.GetString("DarkMode") == "true";
@@ -218,15 +222,20 @@ namespace Lebiru.FileService.Controllers
         /// <summary>
         /// Gets a paginated list of files for AJAX updates
         /// </summary>
+        /// <param name="page">The one-based page number.</param>
+        /// <param name="itemsPerPage">The requested page size.</param>
+        /// <param name="sort">The active column and direction.</param>
+        /// <param name="directoryId">The owned virtual directory to display; null displays root.</param>
         /// <returns>A partial view with the paginated files</returns>
         [HttpGet("List")]
-        public IActionResult List(int page = 1, int itemsPerPage = 10, string sort = "upload_desc")
+        public IActionResult List(int page = 1, int itemsPerPage = 10, string sort = "upload_desc", Guid? directoryId = null)
         {
             // Save pagination preferences to session
             HttpContext.Session.SetInt32("CurrentPage", page);
             HttpContext.Session.SetInt32("ItemsPerPage", itemsPerPage);
 
-            var fileInfos = FileInfos;
+            var fileInfos = GetFilesForDirectory(directoryId, out var directoryContents);
+            if (directoryId.HasValue && directoryContents is null) return NotFound();
 
             sort = sort switch
             {
@@ -284,17 +293,40 @@ namespace Lebiru.FileService.Controllers
 
             ViewBag.Pagination = pagination;
             ViewBag.Sort = sort;
+            ViewBag.CurrentDirectoryId = directoryId;
             return PartialView("_FileList", paginatedFiles);
         }
 
         /// <summary>
         /// Gets the total number of files for pagination
         /// </summary>
+        /// <param name="directoryId">The owned virtual directory to count; null counts root.</param>
         /// <returns>The total number of files</returns>
         [HttpGet("GetTotalFiles")]
-        public IActionResult GetTotalFiles()
+        public IActionResult GetTotalFiles(Guid? directoryId = null)
         {
-            return Json(FileInfos.Count);
+            var files = GetFilesForDirectory(directoryId, out var directoryContents);
+            if (directoryId.HasValue && directoryContents is null) return NotFound();
+            return Json(files.Count);
+        }
+
+        private List<Models.FileInfo> GetFilesForDirectory(Guid? directoryId, out DirectoryContents? contents)
+        {
+            contents = null;
+            if (_directoryService is null) return FileInfos;
+            var username = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(username)) return [];
+            try
+            {
+                contents = _directoryService.GetContents(username, directoryId);
+                return FileInfos.Where(file =>
+                    string.Equals(file.Owner, username, StringComparison.OrdinalIgnoreCase) &&
+                    file.DirectoryId == directoryId).ToList();
+            }
+            catch (VirtualDirectoryNotFoundException)
+            {
+                return [];
+            }
         }
 
         /// <summary>
@@ -1142,14 +1174,23 @@ namespace Lebiru.FileService.Controllers
         /// <summary>
         /// The dedicated upload page for the app. Provides a user-friendly interface for uploading files.
         /// </summary>
+        /// <param name="directoryId">The owned directory selected as the upload destination.</param>
         /// <returns>The upload view</returns>
         [HttpGet("Upload")]
-        public IActionResult UploadPage()
+        public IActionResult UploadPage([FromQuery] Guid? directoryId = null)
         {
+            if (directoryId.HasValue)
+            {
+                var username = User.Identity?.Name;
+                if (string.IsNullOrWhiteSpace(username)) return Unauthorized();
+                if (_directoryService is null || !_directoryService.IsOwnedBy(directoryId.Value, username))
+                    return NotFound();
+            }
             ViewBag.ExpiryOptions = Enum.GetValues(typeof(ExpiryOption));
             ViewBag.MaxFileSizeMB = _config.MaxFileSizeMB;
             ViewBag.MaxDiskSpaceGB = _config.MaxDiskSpaceGB;
             ViewBag.IsDarkMode = Request.Cookies.ContainsKey("darkMode") && Request.Cookies["darkMode"] == "true";
+            ViewBag.CurrentDirectoryId = directoryId;
             return View("Upload");
         }
 

@@ -3,6 +3,7 @@
     ViewData["Title"] = "Upload Files";
     Layout = "_Layout";
     var expiryOptions = (ExpiryOption[])ViewBag.ExpiryOptions;
+    var currentDirectoryId = (Guid?)ViewBag.CurrentDirectoryId;
 }
 
 <style>
@@ -329,6 +330,14 @@
             </div>
             
             <div id="fileList" class="file-list"></div>
+
+            <div class="expiry-container">
+                <label for="directoryId">Destination folder:</label>
+                <select name="directoryId" id="directoryId" class="expiry-select" aria-describedby="directoryHelp">
+                    <option value="">My files (root)</option>
+                </select>
+                <small id="directoryHelp">Choose where these files should appear. File storage remains unchanged.</small>
+            </div>
             
             <div class="expiry-container">
                 <label for="expiryOption">File Expiration:</label>
@@ -359,6 +368,40 @@
 <script>
     // Array to keep track of all uploaded files and their validation status
     const uploadedFiles = [];
+    const initialDirectoryId = '@(currentDirectoryId?.ToString() ?? "")';
+
+    async function collectUploadDirectories(parentId = null, prefix = '', visited = new Set()) {
+        const endpoint = parentId ? `/api/directories/${parentId}/contents` : '/api/directories/root/contents';
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error('Folders could not be loaded.');
+        const contents = await response.json();
+        const options = [];
+        for (const directory of contents.directories || []) {
+            if (visited.has(directory.id)) continue;
+            visited.add(directory.id);
+            options.push({ id: directory.id, name: `${prefix}${directory.name}` });
+            options.push(...await collectUploadDirectories(directory.id, `${prefix}${directory.name} / `, visited));
+        }
+        return options;
+    }
+
+    async function loadUploadDirectories() {
+        const select = document.getElementById('directoryId');
+        try {
+            const directories = await collectUploadDirectories();
+            for (const directory of directories) {
+                const option = document.createElement('option');
+                option.value = directory.id;
+                option.textContent = directory.name;
+                option.selected = directory.id === initialDirectoryId;
+                select.appendChild(option);
+            }
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+
+    loadUploadDirectories();
     
     document.getElementById('files').addEventListener('change', function(e) {
         const fileList = document.getElementById('fileList');
@@ -537,6 +580,8 @@
             }
         });
         formData.append('expiryOption', expiryOption.value);
+        const destinationDirectoryId = document.getElementById('directoryId').value;
+        if (destinationDirectoryId) formData.append('directoryId', destinationDirectoryId);
         
         uploadButton.disabled = true;
         uploadButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
@@ -569,7 +614,7 @@
             setTimeout(() => {
                 showNotification('Files uploaded successfully! Redirecting to home...', 'success');
                 setTimeout(() => {
-                    window.location.href = '/File/Home';
+                    window.location.href = `/File/Home${destinationDirectoryId ? `?directoryId=${destinationDirectoryId}` : ''}`;
                 }, 1500);
             }, 500);
         })
