@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. Versions follow Semantic Versioning.
 
+## [0.0.1-preview.29] - 2026-08-21
+
+### Fixed
+
+- Restored the embedded API documentation in development and production by exposing `/swagger` only after cookie authentication and allowing those resources to be framed solely by the same Felix File Service origin, while preserving clickjacking protection with `DENY` everywhere else.
+- Replaced the invalid nested HTML document on `/File/Swagger` with the standard application page layout, a responsive documentation card, loading state, explanatory header, and direct-open fallback.
+
 ## [0.0.1-preview.28] - 2026-08-21
 
 ### Changed

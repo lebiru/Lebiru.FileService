@@ -10,6 +10,7 @@ using Lebiru.FileService.HangfireScheduler;
 using Microsoft.AspNetCore.Http.Features;
 using Hangfire.Console;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication;
 using Hangfire.Storage.SQLite;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Metrics;
@@ -312,24 +313,6 @@ Console.WriteLine($"Application Version: {version}, Git Commit: {gitCommit}");
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Felix File Service v1");
-        c.DocumentTitle = "Felix File Service API Documentation";
-        c.InjectStylesheet("/swagger-ui/custom.css");
-        c.DefaultModelExpandDepth(2);
-        c.DefaultModelsExpandDepth(-1);
-        c.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
-        c.EnableDeepLinking();
-        c.DisplayRequestDuration();
-    });
-}
-
 // Make version information available globally via middleware or ViewBag.
 app.Use(async (context, next) =>
 {
@@ -365,9 +348,42 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
+
+// Keep the API reference available in every environment, but only to authenticated users.
+// Swagger handles its own responses, so its framing and security headers are applied here.
+app.UseWhen(context => context.Request.Path.StartsWithSegments("/swagger"), swaggerApp =>
+{
+    swaggerApp.Use(async (context, next) =>
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            await context.ChallengeAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return;
+        }
+
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        context.Response.Headers["Referrer-Policy"] = "same-origin";
+        context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+        await next();
+    });
+    swaggerApp.UseSwagger();
+    swaggerApp.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Felix File Service v1");
+        options.DocumentTitle = "Felix File Service API Documentation";
+        options.InjectStylesheet("/swagger-ui/custom.css");
+        options.DefaultModelExpandDepth(2);
+        options.DefaultModelsExpandDepth(-1);
+        options.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
+        options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
+        options.EnableDeepLinking();
+        options.DisplayRequestDuration();
+    });
+});
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
@@ -375,13 +391,13 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     AppPath = "/File/Home",    // Redirects "Back to Site" link
     Authorization = new[] { new HangfireAuthorizationFilter() }
 });
-app.UseHttpsRedirection();
-
 app.Use(async (context, next) =>
 {
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "same-origin";
-    context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers.XFrameOptions = context.Request.Path.StartsWithSegments("/swagger")
+        ? "SAMEORIGIN"
+        : "DENY";
     await next();
 });
 

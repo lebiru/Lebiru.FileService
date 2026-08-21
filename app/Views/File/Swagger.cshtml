@@ -1,36 +1,86 @@
-﻿@{
-    ViewData["Title"] = "Swagger";
+@{
+    ViewData["Title"] = "API Documentation";
     Layout = "_Layout";
 }
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Swagger</title>
-    <style>
-        table {
-            border-collapse: collapse;
-            width: 70%;
-            margin-top: 20px;
-        }
+<div class="container-fluid api-docs-page" aria-labelledby="api-docs-title">
+    <div class="api-docs-heading">
+        <div>
+            <span class="eyebrow">Developer tools</span>
+            <h1 id="api-docs-title">API documentation</h1>
+            <p>Explore Felix File Service endpoints, request models, and response contracts.</p>
+        </div>
+        <a class="btn btn-outline-primary" href="/swagger/index.html" target="_blank" rel="noopener noreferrer">
+            <i class="fas fa-external-link-alt" aria-hidden="true"></i> Open Full Page
+        </a>
+    </div>
 
-        th, td {
-            border: 1px solid #dddddd;
-            text-align: left;
-            padding: 8px;
-        }
+    <section class="card api-docs-card" aria-label="Interactive API reference">
+        <div class="card-header api-docs-toolbar">
+            <div>
+                <span class="api-docs-status"><i class="fas fa-circle" aria-hidden="true"></i> Interactive reference</span>
+                <span class="text-muted small ml-2 d-none d-sm-inline">Requests use your current authenticated session.</span>
+            </div>
+            <a href="/swagger/v1/swagger.json" target="_blank" rel="noopener noreferrer" class="api-schema-link">
+                <i class="fas fa-file-code" aria-hidden="true"></i> OpenAPI JSON
+            </a>
+        </div>
+        <div class="api-docs-frame-wrap">
+            <div id="apiDocsLoading" class="api-docs-loading" role="status">
+                <span class="api-docs-spinner" aria-hidden="true"></span>
+                <strong>Loading API reference…</strong>
+                <small>If it does not appear, use “Open Full Page” above.</small>
+            </div>
+            <iframe
+                id="apiDocsFrame"
+                class="api-docs-frame"
+                src="/swagger/index.html"
+                title="Felix File Service interactive API documentation"
+                sandbox="allow-scripts allow-forms allow-same-origin allow-downloads"
+                referrerpolicy="same-origin">
+            </iframe>
+        </div>
+    </section>
+</div>
 
-        th {
-            background-color: #f2f2f2;
-        }
+@section Styles {
+<style>
+    .api-docs-page { display: grid; gap: 1.25rem; padding: 0; }
+    .api-docs-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+    .api-docs-heading h1 { margin: .15rem 0 .25rem; font-size: clamp(1.8rem, 3vw, 2.45rem); }
+    .api-docs-heading p { margin: 0; color: var(--muted); }
+    .api-docs-card { min-width: 0; overflow: hidden; }
+    .api-docs-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 58px; }
+    .api-docs-status { color: #344054; font-size: .82rem; font-weight: 700; }
+    .api-docs-status i { margin-right: .35rem; color: var(--success); font-size: .55rem; vertical-align: middle; }
+    .api-schema-link { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; font-size: .8rem; font-weight: 650; }
+    .api-docs-frame-wrap { position: relative; height: max(680px, calc(100vh - 275px)); min-height: 680px; background: #f8fafc; }
+    .api-docs-frame { position: relative; z-index: 2; display: block; width: 100%; height: 100%; border: 0; background: transparent; opacity: 0; transition: opacity .2s ease; }
+    .api-docs-frame.is-loaded { opacity: 1; }
+    .api-docs-loading { position: absolute; inset: 0; z-index: 1; display: grid; align-content: center; justify-items: center; gap: .6rem; color: var(--muted); text-align: center; }
+    .api-docs-loading small { color: #8b95a7; }
+    .api-docs-spinner { width: 34px; height: 34px; border: 3px solid rgba(99, 91, 255, .16); border-top-color: var(--brand); border-radius: 50%; animation: api-docs-spin .8s linear infinite; }
+    @@keyframes api-docs-spin { to { transform: rotate(360deg); } }
+    body.dark-mode .api-docs-status { color: #dbe3ef; }
+    body.dark-mode .api-docs-frame-wrap { background: #101722; }
+    @@media (max-width: 767.98px) {
+        .api-docs-heading { align-items: stretch; flex-direction: column; }
+        .api-docs-heading .btn { align-self: flex-start; }
+        .api-docs-toolbar { align-items: flex-start; flex-direction: column; }
+        .api-docs-frame-wrap { height: calc(100vh - 330px); min-height: 600px; }
+    }
+</style>
+}
 
-        img {
-            max-width: 100px;
-            max-height: 100px;
-        }
-    </style>
-</head>
-<body>
-    <iframe src="/swagger/index.html" style="width: 100%; height: 600px; border: none;"></iframe>
-</body>
-</html>
+@section Scripts {
+<script>
+(() => {
+    const frame = document.getElementById('apiDocsFrame');
+    const loading = document.getElementById('apiDocsLoading');
+    frame.addEventListener('load', () => {
+        frame.classList.add('is-loaded');
+        loading.hidden = true;
+    }, { once: true });
+})();
+</script>
+}
